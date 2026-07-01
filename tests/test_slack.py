@@ -2,6 +2,8 @@
 
 _SLACK_TEST_WEBHOOK = "https://hooks.slack.com/services/TEST/TEST/TEST"
 
+import pytest
+
 from asset_review import notify
 from asset_review.models import (
     Asset, AssetType, Confidence, Enrichment, Finding, LlmReview, Report, Severity,
@@ -9,20 +11,76 @@ from asset_review.models import (
 
 
 def _report(severity: Severity, confidence: Confidence = Confidence.HIGH) -> Report:
-    asset = Asset(asset_type=AssetType.DNS_RECORD, target="svc.example.com",
-                  identifier="svc", tags={"Owner": "team-x"})
-    finding = Finding("X", "Something bad", severity, "desc", remediation="fix it",
-                      confidence=confidence)
-    review = LlmReview(risk_level=str(severity), summary="s", recommended_actions=["fix it"],
-                       owner_routing="Route to 'team-x'", model="test")
+    asset = Asset(
+        asset_type=AssetType.DNS_RECORD,
+        target="svc.example.com",
+        identifier="svc",
+        account_id="111122223333",
+        region="us-east-1",
+        source_event="ChangeResourceRecordSets",
+        tags={"Owner": "team-x"},
+        metadata={"created_by": "arn:aws:sts::111122223333:assumed-role/deploy/ci"},
+    )
+    finding = Finding(
+        "X",
+        "Something bad",
+        severity,
+        "desc",
+        evidence="GET https://svc.example.com/.env -> 200",
+        remediation="fix it",
+        confidence=confidence,
+    )
+    review = LlmReview(
+        risk_level=str(severity),
+        summary="Security issue detected on svc.example.com.",
+        recommended_actions=["fix it"],
+        owner_routing="Route to 'team-x'",
+        model="test",
+    )
     return Report(asset=asset, enrichment=Enrichment(), findings=[finding], review=review)
 
 
 def test_payload_has_color_and_blocks():
     payload = notify.build_payload(_report(Severity.CRITICAL))
-    assert payload["attachments"][0]["color"] == "#dc2626"
-    assert payload["attachments"][0]["blocks"][0]["type"] == "header"
+    attachment = payload["attachments"][0]
+    assert attachment["color"] == "#dc2626"
+    assert attachment["blocks"][0]["type"] == "section"
+    assert "DNS record security alert" in attachment["blocks"][0]["text"]["text"]
     assert "svc.example.com" in payload["text"]
+    assert attachment["footer"] == "Cloud Asset Security Review"
+
+
+@pytest.mark.parametrize(
+    "severity, color",
+    [
+        (Severity.CRITICAL, "#dc2626"),
+        (Severity.HIGH, "#ea580c"),
+        (Severity.MEDIUM, "#eab308"),
+        (Severity.LOW, "#16a34a"),
+        (Severity.INFO, "#2563eb"),
+    ],
+)
+def test_severity_sidebar_colors(severity, color):
+    payload = notify.build_payload(_report(severity))
+    assert payload["attachments"][0]["color"] == color
+    assert notify.severity_color(severity) == color
+
+
+def test_payload_includes_structured_fields():
+    payload = notify.build_payload(_report(Severity.HIGH))
+    fields = payload["attachments"][0]["blocks"][2]["fields"]
+    joined = " ".join(f["text"] for f in fields)
+    assert "*Owner:*" in joined
+    assert "*Initiator:*" in joined
+    assert "team-x" in joined
+    assert "ci" in joined
+
+
+def test_summary_uses_dashboard_link_when_configured(monkeypatch):
+    monkeypatch.setenv("SLACK_DASHBOARD_URL", "https://localhost:8000")
+    payload = notify.build_payload(_report(Severity.HIGH))
+    summary = payload["attachments"][0]["blocks"][1]["text"]["text"]
+    assert summary.startswith("<https://localhost:8000|")
 
 
 def test_no_webhook_is_noop(monkeypatch):
