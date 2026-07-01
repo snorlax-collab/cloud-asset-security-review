@@ -8,7 +8,7 @@ New asset → Discovery → Enrichment → Security checks → LLM review → Re
 
 Runs locally with **no AWS account and no API key**. Sample CloudTrail events drive discovery; the LLM falls back to a heuristic when no API key is set.
 
-**More detail:** [Architecture](ARCHITECTURE.md) · [Design](DESIGN.md) · [Threat model](THREAT_MODEL.md) · [Sample report (PDF)](docs/sample-report.pdf)
+**More detail:** [Production setup](docs/PRODUCTION_SETUP.md) · [Architecture](ARCHITECTURE.md) · [Design](DESIGN.md) · [Threat model](THREAT_MODEL.md) · [Sample report (PDF)](docs/sample-report.pdf)
 
 ## Architecture
 
@@ -54,28 +54,26 @@ These apply to local `make scan` / `make poc` and to production workers (via Sec
 
 ### Production AWS (continuous monitoring)
 
-For **always-on discovery and scanning** when new internet-facing assets are created, deploy the Terraform stack. Full runbook: [`infra/terraform/README.md`](infra/terraform/README.md).
+> **Full step-by-step guide:** [`docs/PRODUCTION_SETUP.md`](docs/PRODUCTION_SETUP.md)
 
-**Prerequisites before deploy:**
+For **always-on discovery and scanning** when new internet-facing assets are created, deploy the Terraform stack.
+
+**Quick summary — what you need before deploy:**
 
 | Requirement | Why |
 |---|---|
 | **AWS account** with admin or scoped IAM | Creates Lambda, ECS, SQS, S3, EventBridge, Secrets Manager, ECR |
 | **CloudTrail** with management events enabled | Discovery listens on the default EventBridge bus fed by CloudTrail |
-| **Terraform ≥ 1.5** | `brew install terraform` |
-| **Docker** | Build and push the scanner image to ECR |
-| **AWS CLI** configured (`aws sts get-caller-identity`) | Deploy, push image, tail logs |
+| **Terraform ≥ 1.5** + **Docker** + **AWS CLI** | Deploy infrastructure and push the scanner image |
 | **`ANTHROPIC_API_KEY`** | Real LLM review in workers (stored in Secrets Manager) |
 | **`SLACK_WEBHOOK_URL`** (recommended) | Real-time alerts on new assets and findings |
 | **Default VPC with internet egress** | Fargate workers need outbound access to probe targets |
 
-**Regional note:** Events for resources in your home region (e.g. `ap-south-1`) appear on that region’s EventBridge bus. Route53 and CloudFront events land in **`us-east-1`** — deploy a second stack there if you need global DNS/CloudFront coverage.
-
-**Deploy:**
+**Deploy (4 commands):**
 
 ```bash
 cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-# Edit: aws_region, anthropic_api_key, slack_webhook_url
+# Edit: aws_region, anthropic_api_key, slack_webhook_url  (see PRODUCTION_SETUP.md)
 
 make deploy-init
 make deploy-apply-base AWS_REGION=ap-south-1
@@ -84,25 +82,9 @@ make deploy-push-image AWS_REGION=ap-south-1
 make deploy-apply AWS_REGION=ap-south-1
 ```
 
-**What runs in production:**
+**Verify, view dashboard, troubleshoot:** see [`docs/PRODUCTION_SETUP.md`](docs/PRODUCTION_SETUP.md).
 
-```
-CloudTrail → EventBridge → Discovery Lambda → SQS → ECS Fargate workers → S3 + Slack
-                                                      ↓
-                              Dashboard sync Lambda (every 5 min) → index.html in S3
-```
-
-**Verify after deploy:**
-
-```bash
-aws logs tail /aws/lambda/asset-review-discovery --follow
-aws logs tail /ecs/asset-review-worker --follow
-aws s3 ls s3://$(cd infra/terraform && terraform output -raw reports_bucket)/reports/
-```
-
-Reports and the HTML dashboard live in a **private** S3 bucket. Download with `aws s3 cp` or add CloudFront + auth for browser access.
-
-**POC without full deploy:** `make poc HOST=your-api.execute-api.region.amazonaws.com` scans one asset locally with Slack alerts — useful for demos, not continuous monitoring.
+**POC without full deploy:** `make poc HOST=your-api.execute-api.region.amazonaws.com` — single manual scan with Slack; not continuous monitoring.
 
 ---
 
@@ -138,9 +120,7 @@ Flags: `--json`, `--no-ports`, `--fail-on SEVERITY`
 
 ## AWS deployment
 
-See **Production AWS** under [Setup](#production-aws-continuous-monitoring) above. Terraform modules live in [`infra/terraform/`](infra/terraform/README.md).
-
-Stubs for Step Functions / K8s Jobs remain in [`infra/`](infra/). See [ARCHITECTURE.md](ARCHITECTURE.md).
+Terraform modules: [`infra/terraform/`](infra/terraform/). **Setup guide:** [`docs/PRODUCTION_SETUP.md`](docs/PRODUCTION_SETUP.md).
 
 ---
 

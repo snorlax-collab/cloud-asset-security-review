@@ -10,3 +10,7 @@ dist/
 .env
 .env.*
 !.env.example
+infra/terraform/terraform.tfvars
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*

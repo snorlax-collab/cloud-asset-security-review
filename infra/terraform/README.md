@@ -1,5 +1,7 @@
 # Production deployment (Terraform)
 
+> **Start here for setup:** [`docs/PRODUCTION_SETUP.md`](../../docs/PRODUCTION_SETUP.md) — step-by-step from CloudTrail to running workers.
+
 Deploys continuous monitoring: **CloudTrail → EventBridge → Discovery Lambda → SQS → ECS Fargate workers → S3 + Slack**.
 
 ## Prerequisites
