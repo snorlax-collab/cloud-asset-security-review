@@ -107,5 +107,5 @@ The scanner connects to **untrusted, attacker-controllable** endpoints and parse
 - **Subdomain-takeover hardening:** a maintained provider-fingerprint database and active CNAME-dangling verification.
 - **Finding lifecycle:** dedup/suppress known-accepted risks, track first-seen/last-seen, and diff scans so teams see *new* exposure, not the same list daily.
 - **Feedback loop:** capture analyst dispositions (true/false positive) to tune check severities and the LLM prompt.
-- **IaC + tests for infra:** the `infra/` stubs would become Terraform/CDK with policy tests; add integration tests with `moto` for the SQS/Lambda path.
+- **IaC + tests for infra:** Terraform in [`infra/terraform/`](infra/terraform/) deploys the production stack; `tests/test_sqs_path.py` and `tests/test_storage_s3.py` exercise the queue and S3 paths via `moto`.
 - **Secrets/limits:** API key via secrets manager (shown in the K8s manifest), per-tenant rate limiting, and cost guards on the LLM stage.
