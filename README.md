@@ -18,21 +18,16 @@ Runs locally with **no AWS account and no API key**. Sample CloudTrail events dr
 
 ## Design decisions & tradeoffs
 
-Full write-up: [DESIGN.md](DESIGN.md). Summary of the main calls:
+Short version — full rationale in [DESIGN.md](DESIGN.md):
 
-| Decision | Why | Tradeoff |
-|---|---|---|
-| **Checks are source of truth; LLM is the analyst** | Deterministic findings with evidence stay auditable; the LLM prioritises and writes remediation — it never invents vulnerabilities | The LLM can't find issues the checks never collected signal for — extend checks, don't trust free-form scanning |
-| **Event-driven discovery (CloudTrail → EventBridge)** | Near-real-time, scales with *change rate* not fleet size; events carry account/region/actor for ownership | CloudTrail can drop/delay events; non-AWS DNS pointing at AWS is invisible — mitigated by Config reconciliation (L2) and CT logs (L3, not yet built) |
-| **SQS between discovery and scanning** | Absorbs bursts, horizontal scaling, retries + DLQ for poison messages | At-least-once delivery — scans may run twice (acceptable: read-only, idempotent) |
-| **Curated rule registry, not nuclei/ZAP** | Transparent, dependency-free, easy to extend and feed into the LLM | Less coverage than a full scanner suite — heavier tools can plug in behind the same queue later |
-| **Confidence scoring + content validation** | Path probes (e.g. `/.env`) use soft-404 detection and content signatures so SPAs don't false-positive as CRITICAL | Per-path heuristics need maintenance; confidence is a coarse 3-level scale, not a calibrated score |
-| **Asset-type-scoped checks** | Web header/method rules don't run against S3 (S3 legitimately uses PUT/DELETE) | More check logic to maintain per asset type |
-| **Ephemeral, isolated workers** | Each scan touches untrusted targets — disposable Fargate tasks, egress-only networking, no shared state | Per-scan scheduling overhead vs. a warm pool; production uses always-on Fargate for simplicity over per-asset Jobs |
-| **Stdlib-first core** | Zero deps locally, tiny container, fast cold start, smaller attack surface | Less capable than `requests`/full DNS libraries — optional `[dns]`/`[aws]` extras close gaps |
-| **Private S3 dashboard** | Reports are sensitive — bucket is encrypted and not public by default | No browser URL out of the box; download with `aws s3 cp` or add CloudFront + auth |
+- **Checks find issues; LLM explains them** — no hallucinated vulnerabilities
+- **CloudTrail events trigger scans** — fast, but misses non-AWS DNS and delayed events
+- **SQS decouples discovery from scanning** — scales horizontally; scans may run twice
+- **Small built-in rule set** — clear and auditable, not a full nuclei/ZAP replacement
+- **False-positive guards** — content checks + confidence scores before alerting
+- **Isolated workers + private S3 reports** — safe scanning; no public dashboard URL by default
 
-**Known gaps (by design for this prototype):** tier-2 correlation (SG opens → resolve public IP), finding dedup/lifecycle, multi-account assume-role for S3 API checks, public dashboard URL. See [DESIGN.md § What I'd do next](DESIGN.md#what-id-do-next-prototype--production).
+**Not built yet:** tier-2 correlation, finding dedup/lifecycle, multi-account S3 API checks.
 
 ---
 
