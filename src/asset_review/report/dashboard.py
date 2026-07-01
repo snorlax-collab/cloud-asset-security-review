@@ -43,8 +43,17 @@ _ICONS = {
 
 def build_dashboard(reports_dir: Path) -> Path:
     reports = _load_reports(reports_dir)
-    (reports_dir / "index.html").write_text(_render(reports))
+    (reports_dir / "index.html").write_text(render_dashboard(reports))
     return reports_dir / "index.html"
+
+
+def render_dashboard(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
+    """Return self-contained dashboard HTML for browser view or PDF export."""
+    return _render(reports, for_pdf=for_pdf)
+
+
+def load_reports(reports_dir: Path) -> list[dict[str, Any]]:
+    return _load_reports(reports_dir)
 
 
 def _load_reports(reports_dir: Path) -> list[dict[str, Any]]:
@@ -151,13 +160,13 @@ def _asset_table(subset: list[dict[str, Any]], cols_owner: bool = True) -> str:
             f'<tbody>{rows}</tbody></table></div>')
 
 
-def _asset_detail(r: dict[str, Any]) -> str:
+def _asset_detail(r: dict[str, Any], *, expand: bool = False) -> str:
     a = r.get("asset", {})
     review = r.get("review", {})
     enr = r.get("enrichment", {})
     findings = r.get("findings", [])
     level = review.get("risk_level", "INFO")
-    is_open = _SEV_RANK.get(level, 0) >= _SEV_RANK["HIGH"]
+    is_open = expand or _SEV_RANK.get(level, 0) >= _SEV_RANK["HIGH"]
 
     finding_rows = "".join(
         f"<tr><td>{_chip(f.get('severity','INFO'), small=True)}</td>"
@@ -261,13 +270,13 @@ def _metadata_grid(a: dict[str, Any], enr: dict[str, Any]) -> str:
     return cards or '<p class="empty">No metadata collected.</p>'
 
 
-def _asset_section(subset: list[dict[str, Any]], blurb: str) -> str:
+def _asset_section(subset: list[dict[str, Any]], blurb: str, *, expand_details: bool = False) -> str:
     if not subset:
         return f'<p class="blurb">{html.escape(blurb)}</p><div class="panel"><p class="empty">No assets in this category.</p></div>'
     return (f'<p class="blurb">{html.escape(blurb)}</p>'
             + _asset_table(subset)
             + '<h3 style="margin-top:22px;">Details</h3>'
-            + "".join(_asset_detail(r) for r in subset))
+            + "".join(_asset_detail(r, expand=expand_details) for r in subset))
 
 
 def _findings_section(reports: list[dict[str, Any]]) -> str:
@@ -322,7 +331,7 @@ def _nav_item(view: str, icon: str, label: str, count: int | None) -> str:
             f'<span class="nav-l">{html.escape(label)}</span>{badge}</a>')
 
 
-def _render(reports: list[dict[str, Any]]) -> str:
+def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
     counts: dict[str, int] = {s: 0 for s in _SEV_ORDER}
     for r in reports:
         for f in r.get("findings", []):
@@ -379,23 +388,66 @@ def _render(reports: list[dict[str, Any]]) -> str:
     ])
 
     def _view(vid: str, title: str, body: str, show: bool = False) -> str:
+        if for_pdf:
+            style = ' style="page-break-before:always;"' if vid != "overview" else ""
+            return f'<section class="view" id="{vid}"{style}><h2>{html.escape(title)}</h2>{body}</section>'
         style = "" if show else ' style="display:none"'
         return f'<section class="view" id="{vid}"{style}><h2>{html.escape(title)}</h2>{body}</section>'
 
+    section_kw = {"expand_details": for_pdf}
     views = "".join([
-        _view("overview", "Security overview", overview, show=True),
+        _view("overview", "Security overview", overview, show=not for_pdf),
         _view("new-domains", "New domains",
               _asset_section(new_domains, "Newly created hosted zones / registered domains "
-                             "(Route53 CreateHostedZone, RegisterDomain).")),
+                             "(Route53 CreateHostedZone, RegisterDomain).", **section_kw)),
         _view("existing-domains", "Existing domains",
               _asset_section(existing_domains, "Records added to existing zones "
-                             "(Route53 ChangeResourceRecordSets) — subdomains on domains you already own.")),
+                             "(Route53 ChangeResourceRecordSets) — subdomains on domains you already own.",
+                             **section_kw)),
         _view("endpoints", "Endpoints & services",
               _asset_section(endpoints, "Load balancers, API gateways, CloudFront, Lambda URLs, "
-                             "EC2, RDS, S3 and other internet-facing resources.")),
+                             "EC2, RDS, S3 and other internet-facing resources.", **section_kw)),
         _view("findings", "Findings", _findings_section(reports)),
         _view("discovery", "Discovery sources", _discovery_section(reports)),
     ])
+
+    body_class = ' class="pdf-export"' if for_pdf else ""
+    nav_block = "" if for_pdf else f"""<nav class="side">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <path d="M12 2 20 6v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    <span class="brand-title">Asset Review</span>
+  </div>
+  <div class="brand-sub">Cloud security dashboard</div>
+  {nav}
+</nav>"""
+    script_block = "" if for_pdf else """
+<script>
+  (function() {
+    var links = document.querySelectorAll('.nav');
+    var views = document.querySelectorAll('.view');
+    function show(id) {
+      views.forEach(function(v) { v.style.display = (v.id === id) ? 'block' : 'none'; });
+      links.forEach(function(l) { l.classList.toggle('active', l.dataset.view === id); });
+    }
+    links.forEach(function(l) {
+      l.addEventListener('click', function(e) { e.preventDefault(); show(l.dataset.view); });
+    });
+    show('overview');
+  })();
+</script>"""
+    pdf_css = """
+  body.pdf-export { display:block; }
+  body.pdf-export .main { width:100%; max-width:none; }
+  body.pdf-export .content { max-width:none; }
+  body.pdf-export .view#overview { page-break-before:avoid; }
+  body.pdf-export details.asset { break-inside:avoid; }
+  @media print {
+    body.pdf-export .side { display:none; }
+    body.pdf-export .view { display:block !important; }
+  }""" if for_pdf else ""
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -410,9 +462,8 @@ def _render(reports: list[dict[str, Any]]) -> str:
   .side {{ width: 230px; flex-shrink: 0; background: #fff; border-right: 1px solid #e6e8eb;
            padding: 18px 12px; position: sticky; top: 0; align-self: flex-start; height: 100vh; }}
   .brand {{ display:flex; align-items:center; gap:8px; padding: 8px 10px 2px; }}
-  .dr-mark path {{ fill:#111; }}
-  .dr-word {{ font-size:19px; font-weight:700; letter-spacing:-.5px; color:#111; }}
-  .dr-word sup {{ font-size:9px; font-weight:400; vertical-align:super; }}
+  .brand-mark {{ color:#4f46e5; flex-shrink:0; }}
+  .brand-title {{ font-size:16px; font-weight:700; letter-spacing:-.3px; color:#0f172a; }}
   .brand-sub {{ font-size:11px; color:#94a3b8; padding: 0 12px 16px; letter-spacing:.3px; }}
   .nav {{ display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:9px;
           color:#475569; font-size:13.5px; font-weight:500; cursor:pointer; margin-bottom:2px; }}
@@ -476,36 +527,13 @@ def _render(reports: list[dict[str, Any]]) -> str:
   .empty {{ color:#94a3b8; text-align:center; padding:16px; }}
   .sr-only {{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }}
   @media (max-width: 900px) {{ .side {{ display:none; }} .grid, .two-col {{ grid-template-columns:1fr; }} }}
+  {pdf_css}
 </style></head>
-<body>
+<body{body_class}>
 <h1 class="sr-only">Cloud Asset Security Review dashboard — {len(reports)} assets, {total_findings} findings.</h1>
-<nav class="side">
-  <div class="brand">
-    <svg class="dr-mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
-      <path d="M16 3 L27 9.5 L16 16 Z"/><path d="M29 16 L22.5 27 L16 16.5 Z"/>
-      <path d="M16 29 L5 22.5 L16 16 Z"/><path d="M3 16 L9.5 5 L16 15.5 Z"/>
-    </svg>
-    <span class="dr-word">DevRev<sup>®</sup></span>
-  </div>
-  <div class="brand-sub">Asset Review</div>
-  {nav}
-</nav>
+{nav_block}
 <div class="main">
   <div class="topbar"><span class="tb-title">AI-Assisted Cloud Asset Security Dashboard</span><span class="tb-meta">{len(reports)} assets · {total_findings} findings · {generated}</span></div>
   <div class="content">{views}</div>
-</div>
-<script>
-  (function() {{
-    var links = document.querySelectorAll('.nav');
-    var views = document.querySelectorAll('.view');
-    function show(id) {{
-      views.forEach(function(v) {{ v.style.display = (v.id === id) ? 'block' : 'none'; }});
-      links.forEach(function(l) {{ l.classList.toggle('active', l.dataset.view === id); }});
-    }}
-    links.forEach(function(l) {{
-      l.addEventListener('click', function(e) {{ e.preventDefault(); show(l.dataset.view); }});
-    }});
-    show('overview');
-  }})();
-</script>
+</div>{script_block}
 </body></html>"""

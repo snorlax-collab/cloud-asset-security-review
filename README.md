@@ -8,7 +8,7 @@ New asset → Discovery → Enrichment → Security checks → LLM review → Re
 
 Runs locally with **no AWS account and no API key**. Sample CloudTrail events drive discovery; the LLM falls back to a heuristic when no API key is set.
 
-**More detail:** [Architecture](ARCHITECTURE.md) · [Design](DESIGN.md) · [Threat model](THREAT_MODEL.md) · [Sample report](docs/sample-report.md)
+**More detail:** [Architecture](ARCHITECTURE.md) · [Design](DESIGN.md) · [Threat model](THREAT_MODEL.md) · [Sample report (PDF)](docs/sample-report.pdf)
 
 ## Architecture
 
@@ -45,7 +45,7 @@ make stack                    # full Docker stack (SQS + workers) → :8000
 make stack-down               # stop Docker stack
 ```
 
-**Sample output:** [`docs/sample-report.md`](docs/sample-report.md) shows a full example report. `make demo` runs the pipeline but most bundled hostnames don't resolve — use `make scan HOST=…` for live results.
+**Sample output:** [`docs/sample-report.pdf`](docs/sample-report.pdf) is a dashboard-style PDF (overview metrics, findings chart, per-asset detail). Source JSON lives in [`docs/sample-reports/`](docs/sample-reports/). A live-scan example for `example.com` is in [`docs/sample-report-example.com.pdf`](docs/sample-report-example.com.pdf). Regenerate with `make sample-pdf` (requires Chrome).
 
 ---
 
