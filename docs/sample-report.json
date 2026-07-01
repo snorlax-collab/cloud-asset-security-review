@@ -1,0 +1,282 @@
+{
+  "asset": {
+    "asset_type": "dns_record",
+    "target": "api-internal.acme-corp.com",
+    "identifier": "api-internal.acme-corp.com",
+    "account_id": "111122223333",
+    "region": "us-east-1",
+    "source_event": "ChangeResourceRecordSets",
+    "discovered_at": 1782843975.79791,
+    "tags": {
+      "Owner": "payments-team",
+      "env": "prod"
+    },
+    "metadata": {
+      "created_by": "arn:aws:sts::111122223333:assumed-role/payments-deploy/ci-runner"
+    }
+  },
+  "enrichment": {
+    "resolved_ips": [
+      "203.0.113.50"
+    ],
+    "cname_chain": [],
+    "reachable": true,
+    "http": {
+      "scheme": "https",
+      "status": 200,
+      "server": "nginx/1.18.0",
+      "final_url": "https://api-internal.acme-corp.com/",
+      "headers": {
+        "server": "nginx/1.18.0",
+        "x-powered-by": "Express"
+      },
+      "title": "Acme Internal API",
+      "allowed_methods": [
+        "PUT",
+        "DELETE",
+        "TRACE"
+      ],
+      "soft_404": false,
+      "sensitive_paths": [
+        {
+          "path": "/.env",
+          "status": 200,
+          "content_type": "text/plain",
+          "body": "DB_PASSWORD=hunter2\nAWS_SECRET_ACCESS_KEY=sk-abc\n"
+        },
+        {
+          "path": "/v3/api-docs",
+          "status": 200,
+          "content_type": "application/json",
+          "body": "{\"openapi\":\"3.0.1\",\"paths\":{}}"
+        },
+        {
+          "path": "/actuator/env",
+          "status": 200,
+          "content_type": "application/json",
+          "body": "{\"propertySources\":[]}"
+        }
+      ]
+    },
+    "tls": {
+      "negotiated_version": "TLSv1.2",
+      "issuer_org": "Let's Encrypt",
+      "days_until_expiry": 8,
+      "self_signed": false,
+      "hostname_valid": true,
+      "weak_protocols": [
+        "TLS1.0",
+        "TLS1.1"
+      ]
+    },
+    "open_ports": [
+      22,
+      443,
+      6379,
+      9200
+    ],
+    "waf_cdn": {
+      "detected": [],
+      "present": false
+    },
+    "technologies": [
+      "nginx",
+      "Express"
+    ],
+    "metadata": {},
+    "errors": []
+  },
+  "findings": [
+    {
+      "check_id": "EXP-secret-file",
+      "title": "Sensitive file exposed: /.env",
+      "severity": "CRITICAL",
+      "description": "Source-control metadata or environment file is publicly readable, frequently leaking credentials and internal structure.",
+      "evidence": "GET /.env -> 200 (content match: True)",
+      "remediation": "Block these paths at the edge and rotate any leaked secrets.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "NET-port-6379",
+      "title": "Sensitive port 6379/Redis reachable from the internet",
+      "severity": "CRITICAL",
+      "description": "Redis is exposed publicly. Data stores and admin protocols should never be internet-reachable; many ship with weak/no auth by default.",
+      "evidence": "TCP 6379 open on api-internal.acme-corp.com",
+      "remediation": "Restrict via security group/NACL to known CIDRs or a bastion; bind to private subnets.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "NET-port-9200",
+      "title": "Sensitive port 9200/Elasticsearch reachable from the internet",
+      "severity": "CRITICAL",
+      "description": "Elasticsearch is exposed publicly. Data stores and admin protocols should never be internet-reachable; many ship with weak/no auth by default.",
+      "evidence": "TCP 9200 open on api-internal.acme-corp.com",
+      "remediation": "Restrict via security group/NACL to known CIDRs or a bastion; bind to private subnets.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "TLS-weak-protocol",
+      "title": "Deprecated TLS version accepted",
+      "severity": "HIGH",
+      "description": "Server negotiates legacy TLS, which has known cryptographic weaknesses.",
+      "evidence": "Accepted: TLS1.0, TLS1.1",
+      "remediation": "Disable TLS 1.0/1.1; require TLS 1.2+.",
+      "confidence": "HIGH",
+      "references": [
+        "https://datatracker.ietf.org/doc/rfc8996/"
+      ]
+    },
+    {
+      "check_id": "EXP-admin",
+      "title": "Admin/management surface exposed: /actuator/env",
+      "severity": "HIGH",
+      "description": "An administrative interface is reachable from the internet without an auth gate.",
+      "evidence": "GET /actuator/env -> 200",
+      "remediation": "Restrict to VPN/SSO/allow-list; never expose admin panels publicly.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "HTTP-methods",
+      "title": "Dangerous HTTP methods enabled: PUT, DELETE, TRACE",
+      "severity": "HIGH",
+      "description": "Write/diagnostic verbs are enabled; PUT/DELETE may allow content tampering, TRACE can enable Cross-Site Tracing.",
+      "evidence": "Allowed: PUT, DELETE, TRACE",
+      "remediation": "Disable unused methods at the application/proxy layer.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "HDR-strict-transport-security",
+      "title": "HSTS not set",
+      "severity": "MEDIUM",
+      "description": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
+      "evidence": "Response from https://api-internal.acme-corp.com/",
+      "remediation": "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "TLS-expiring",
+      "title": "TLS certificate expiring soon",
+      "severity": "MEDIUM",
+      "description": "Certificate expires in 8 days.",
+      "evidence": "",
+      "remediation": "Renew now; ensure automated rotation is in place.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "EXP-api-docs",
+      "title": "API documentation exposed: /v3/api-docs",
+      "severity": "MEDIUM",
+      "description": "Swagger/OpenAPI specs map the full attack surface for an attacker.",
+      "evidence": "GET /v3/api-docs -> 200",
+      "remediation": "Disable docs in production or require authentication.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "EXP-sensitive-name",
+      "title": "Internet-facing hostname suggests non-public service",
+      "severity": "MEDIUM",
+      "description": "The hostname contains keywords that usually denote internal/admin/non-prod systems that should not be publicly resolvable.",
+      "evidence": "hostname='api-internal.acme-corp.com', keywords=['internal']",
+      "remediation": "Confirm this must be public; otherwise move behind VPN/private DNS.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "NET-port-22",
+      "title": "Sensitive port 22/SSH reachable from the internet",
+      "severity": "MEDIUM",
+      "description": "SSH is exposed publicly. Data stores and admin protocols should never be internet-reachable; many ship with weak/no auth by default.",
+      "evidence": "TCP 22 open on api-internal.acme-corp.com",
+      "remediation": "Restrict via security group/NACL to known CIDRs or a bastion; bind to private subnets.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "HDR-content-security-policy",
+      "title": "Content-Security-Policy not set",
+      "severity": "LOW",
+      "description": "No CSP increases the blast radius of any XSS on the asset.",
+      "evidence": "Response from https://api-internal.acme-corp.com/",
+      "remediation": "Define a restrictive CSP appropriate to the app.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-x-content-type-options",
+      "title": "X-Content-Type-Options not set",
+      "severity": "LOW",
+      "description": "MIME sniffing can turn benign uploads into script execution.",
+      "evidence": "Response from https://api-internal.acme-corp.com/",
+      "remediation": "Add `X-Content-Type-Options: nosniff`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-x-frame-options",
+      "title": "Clickjacking protection missing",
+      "severity": "LOW",
+      "description": "Neither X-Frame-Options nor a CSP frame-ancestors directive is present.",
+      "evidence": "Response from https://api-internal.acme-corp.com/",
+      "remediation": "Add `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-server-banner",
+      "title": "Server version disclosed in banner",
+      "severity": "LOW",
+      "description": "The Server header leaks software and version, aiding targeted exploitation.",
+      "evidence": "Server: nginx/1.18.0",
+      "remediation": "Suppress or genericise the Server header at the proxy.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "NET-no-waf",
+      "title": "No WAF/CDN detected in front of public web asset",
+      "severity": "LOW",
+      "description": "No edge protection signature was observed; the origin may be directly exposed to L7 attacks and volumetric traffic.",
+      "evidence": "No CloudFront/Cloudflare/AWS WAF headers seen.",
+      "remediation": "Front the asset with AWS WAF + CloudFront or equivalent.",
+      "confidence": "LOW",
+      "references": []
+    }
+  ],
+  "review": {
+    "risk_level": "CRITICAL",
+    "summary": "16 issue(s) found on api-internal.acme-corp.com (dns_record, owner: payments-team). Highest severity: CRITICAL \u2014 Sensitive file exposed: /.env.",
+    "key_findings": [
+      "[CRITICAL/HIGH conf] Sensitive file exposed: /.env",
+      "[CRITICAL/MEDIUM conf] Sensitive port 6379/Redis reachable from the internet",
+      "[CRITICAL/MEDIUM conf] Sensitive port 9200/Elasticsearch reachable from the internet",
+      "[HIGH/HIGH conf] Deprecated TLS version accepted",
+      "[HIGH/MEDIUM conf] Admin/management surface exposed: /actuator/env",
+      "[HIGH/MEDIUM conf] Dangerous HTTP methods enabled: PUT, DELETE, TRACE",
+      "[MEDIUM/HIGH conf] HSTS not set",
+      "[MEDIUM/HIGH conf] TLS certificate expiring soon"
+    ],
+    "potential_impact": "Source-control metadata or environment file is publicly readable, frequently leaking credentials and internal structure.",
+    "recommended_actions": [
+      "Block these paths at the edge and rotate any leaked secrets.",
+      "Restrict via security group/NACL to known CIDRs or a bastion; bind to private subnets.",
+      "Disable TLS 1.0/1.1; require TLS 1.2+.",
+      "Restrict to VPN/SSO/allow-list; never expose admin panels publicly.",
+      "Disable unused methods at the application/proxy layer.",
+      "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
+      "Renew now; ensure automated rotation is in place.",
+      "Disable docs in production or require authentication."
+    ],
+    "owner_routing": "Route to 'payments-team' (created by arn:aws:sts::111122223333:assumed-role/payments-deploy/ci-runner)",
+    "model": "heuristic-fallback",
+    "used_fallback": true
+  },
+  "generated_at": 1782843975.7981498
+}

@@ -1,0 +1,96 @@
+{
+  "Comment": "Per-asset review run as an ephemeral, isolated task. Triggered by the SQS queue (via EventBridge Pipes or a poller). Each execution runs one scan in a fresh Fargate task, then routes the result. State machine = orchestration; the scan container = ephemeral execution boundary.",
+  "StartAt": "RunEphemeralScan",
+  "States": {
+    "RunEphemeralScan": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "Comment": "Short-lived Fargate task with a least-privilege task role. Network-isolated subnet, no inbound, egress only. Destroyed on completion.",
+      "Parameters": {
+        "Cluster": "arn:aws:ecs:us-east-1:111122223333:cluster/asset-scanner",
+        "TaskDefinition": "asset-scanner:latest",
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["subnet-scanner-isolated"],
+            "SecurityGroups": ["sg-scanner-egress-only"],
+            "AssignPublicIp": "ENABLED"
+          }
+        },
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "scanner",
+              "Environment": [
+                { "Name": "ASSET_JSON", "Value.$": "States.JsonToString($.asset)" }
+              ]
+            }
+          ]
+        }
+      },
+      "TimeoutSeconds": 300,
+      "Retry": [
+        { "ErrorEquals": ["States.TaskFailed"], "MaxAttempts": 2, "BackoffRate": 2.0, "IntervalSeconds": 5 }
+      ],
+      "Catch": [
+        { "ErrorEquals": ["States.ALL"], "Next": "RecordFailure" }
+      ],
+      "Next": "RouteFindings"
+    },
+    "RouteFindings": {
+      "Type": "Choice",
+      "Comment": "High/critical findings page the owning team; everything else is filed.",
+      "Choices": [
+        {
+          "Variable": "$.report.risk_level",
+          "StringMatches": "CRITICAL",
+          "Next": "PageOnCall"
+        },
+        {
+          "Variable": "$.report.risk_level",
+          "StringMatches": "HIGH",
+          "Next": "NotifyOwner"
+        }
+      ],
+      "Default": "FileReport"
+    },
+    "PageOnCall": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:111122223333:security-pager",
+        "Message.$": "$.report"
+      },
+      "Next": "FileReport"
+    },
+    "NotifyOwner": {
+      "Type": "Task",
+      "Comment": "SNS topic with a Slack/chatbot subscription (AWS Chatbot or a Lambda posting to the Slack Incoming Webhook). The scanner's built-in Slack notifier (src/asset_review/notify) is the same alert for the queue-based deployment.",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:111122223333:security-findings",
+        "Message.$": "$.report"
+      },
+      "Next": "FileReport"
+    },
+    "FileReport": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Parameters": {
+        "Bucket": "asset-security-reports",
+        "Key.$": "States.Format('reports/{}/{}.json', $.asset.account_id, $.asset.target)",
+        "Body.$": "$.report"
+      },
+      "End": true
+    },
+    "RecordFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sqs:sendMessage",
+      "Parameters": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/111122223333/asset-scan-dlq",
+        "MessageBody.$": "$"
+      },
+      "End": true
+    }
+  }
+}

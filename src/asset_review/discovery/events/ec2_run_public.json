@@ -1,0 +1,42 @@
+{
+  "version": "0",
+  "id": "a1b2c3d4-0003-0003-0003-ec2run",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.ec2",
+  "account": "111122223333",
+  "region": "us-west-2",
+  "detail": {
+    "eventName": "RunInstances",
+    "awsRegion": "us-west-2",
+    "recipientAccountId": "111122223333",
+    "userIdentity": {
+      "arn": "arn:aws:iam::111122223333:user/intern-dev",
+      "accountId": "111122223333"
+    },
+    "requestParameters": {
+      "tagSpecificationSet": {
+        "items": [
+          {
+            "resourceType": "instance",
+            "tags": [
+              {"key": "Owner", "value": "data-platform"},
+              {"key": "env", "value": "dev"}
+            ]
+          }
+        ]
+      }
+    },
+    "responseElements": {
+      "instancesSet": {
+        "items": [
+          {
+            "instanceId": "i-0abc123def4567890",
+            "instanceType": "t3.large",
+            "ipAddress": "203.0.113.42",
+            "dnsName": "ec2-203-0-113-42.us-west-2.compute.amazonaws.com"
+          }
+        ]
+      }
+    }
+  }
+}

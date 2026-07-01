@@ -1,0 +1,32 @@
+{
+  "version": "0",
+  "id": "a1b2c3d4-0002-0002-0002-elbcreate",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.elasticloadbalancing",
+  "account": "111122223333",
+  "region": "us-east-1",
+  "detail": {
+    "eventName": "CreateLoadBalancer",
+    "awsRegion": "us-east-1",
+    "recipientAccountId": "111122223333",
+    "userIdentity": {
+      "arn": "arn:aws:sts::111122223333:assumed-role/search-team/terraform",
+      "accountId": "111122223333"
+    },
+    "requestParameters": {
+      "name": "search-public-alb",
+      "scheme": "internet-facing",
+      "type": "application"
+    },
+    "responseElements": {
+      "loadBalancers": [
+        {
+          "loadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:111122223333:loadbalancer/app/search-public-alb/abc123",
+          "dNSName": "search-public-alb-1234567890.us-east-1.elb.amazonaws.com",
+          "scheme": "internet-facing",
+          "type": "application"
+        }
+      ]
+    }
+  }
+}

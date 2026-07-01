@@ -1,0 +1,85 @@
+# The full scalable architecture, runnable in one command:
+#
+#   docker compose up --build            # then open http://localhost:8000
+#
+# Demonstrates the real pipeline end-to-end on local infra:
+#
+#   sample CloudTrail events ─▶ publisher ─▶ SQS (LocalStack) ─▶ worker pool (x3)
+#                                                                     │
+#                                                              reports volume
+#                                                                     │
+#                                                              dashboard (:8000)
+#
+# Scale the worker pool to see horizontal scaling:
+#   docker compose up --build --scale worker=6
+#
+# Set ANTHROPIC_API_KEY (env or .env) for the real Claude review; without it the
+# workers use the deterministic heuristic fallback.
+
+x-aws-env: &aws-env
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_DEFAULT_REGION: us-east-1
+
+services:
+  # --- Local SQS (stands in for the real queue) -----------------------------
+  localstack:
+    image: localstack/localstack:3
+    environment:
+      SERVICES: sqs
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs list-queues || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  # --- Discovery → queue: parse sample events, publish assets to SQS --------
+  publisher:
+    build: .
+    image: asset-scanner
+    depends_on:
+      localstack: { condition: service_healthy }
+    environment: *aws-env
+    command:
+      - publish
+      - --queue-name=asset-scan
+      - --create
+      - --events-dir=src/asset_review/discovery/events
+
+  # --- Ephemeral scanning worker pool: poll SQS, scan, write reports --------
+  worker:
+    build: .
+    image: asset-scanner
+    depends_on:
+      publisher: { condition: service_completed_successfully }
+    environment:
+      <<: *aws-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      SLACK_ALERT_THRESHOLD: ${SLACK_ALERT_THRESHOLD:-HIGH}
+    volumes:
+      - reports:/reports
+    deploy:
+      replicas: 3                 # horizontal scaling off queue depth
+    command:
+      - worker
+      - --queue-name=asset-scan
+      - --create
+      - --out=/reports
+      - --drain-empty=3           # exit once the queue is empty (demo); use 0 for always-on
+
+  # --- Findings dashboard ---------------------------------------------------
+  dashboard:
+    build: .
+    image: asset-scanner
+    depends_on:
+      worker: { condition: service_completed_successfully }
+    volumes:
+      - reports:/reports
+    ports:
+      - "8000:8000"
+    command: [serve, --out=/reports, --port=8000, --bind=0.0.0.0]
+
+volumes:
+  reports:

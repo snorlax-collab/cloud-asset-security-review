@@ -1,0 +1,31 @@
+{
+  "version": "0",
+  "id": "a1b2c3d4-0001-0001-0001-route53create",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.route53",
+  "account": "111122223333",
+  "region": "us-east-1",
+  "detail": {
+    "eventName": "ChangeResourceRecordSets",
+    "awsRegion": "us-east-1",
+    "recipientAccountId": "111122223333",
+    "userIdentity": {
+      "arn": "arn:aws:sts::111122223333:assumed-role/payments-deploy/ci-runner",
+      "accountId": "111122223333"
+    },
+    "requestParameters": {
+      "hostedZoneId": "Z123EXAMPLE",
+      "changeBatch": {
+        "changes": [
+          {
+            "action": "CREATE",
+            "resourceRecordSet": {
+              "name": "admin-staging.payments.example.com.",
+              "type": "A"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

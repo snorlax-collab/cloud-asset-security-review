@@ -1,0 +1,65 @@
+{
+  "_comment": "EventBridge rules that drive real-time discovery off CloudTrail. Two tiers: (1) born-public/exposed events we parse straight into a scannable Asset, and (2) became-public / signal-only events that need an L2 correlation worker (read-only Describe*) to resolve the actual public target before scanning. CloudTrail management events must be enabled in the account/org; Route53 + CloudFront are global services whose events land in us-east-1.",
+
+  "tier1-directly-scannable": {
+    "_doc": "Parsed by discovery/cloudtrail.py into an Asset and enqueued immediately.",
+    "EventPattern": {
+      "source": ["aws.route53", "aws.route53domains", "aws.elasticloadbalancing", "aws.ec2",
+                 "aws.apigateway", "aws.lambda", "aws.cloudfront", "aws.rds", "aws.s3"],
+      "detail-type": ["AWS API Call via CloudTrail"],
+      "detail": {
+        "eventName": [
+          "ChangeResourceRecordSets", "CreateHostedZone", "RegisterDomain",
+          "CreateLoadBalancer",
+          "CreateRestApi", "CreateApi", "CreateDomainName",
+          "CreateFunctionUrlConfig", "UpdateFunctionUrlConfig",
+          "CreateDistribution", "CreateDistributionWithTags",
+          "RunInstances", "AssociateAddress",
+          "CreateDBInstance", "ModifyDBInstance",
+          "CreateBucket", "PutBucketAcl", "PutBucketPolicy", "DeleteBucketPublicAccessBlock"
+        ],
+        "errorCode": [{ "exists": false }]
+      }
+    },
+    "Targets": [
+      {
+        "Id": "discovery-lambda",
+        "Arn": "arn:aws:lambda:us-east-1:111122223333:function:asset-discovery",
+        "RetryPolicy": { "MaximumRetryAttempts": 4, "MaximumEventAgeInSeconds": 3600 },
+        "DeadLetterConfig": { "Arn": "arn:aws:sqs:us-east-1:111122223333:asset-discovery-dlq" }
+      }
+    ]
+  },
+
+  "tier2-needs-correlation": {
+    "_doc": "Signal-only 'became public' events. The target isn't in the event (an open SG/ECS task maps to N resources / an async-assigned IP), so these go to an L2 correlation worker that calls EC2 DescribeNetworkInterfaces / DescribeInstances (read-only) to resolve the actual public IP(s), then enqueues Assets. Documented here; the prototype implements tier 1.",
+    "EventPattern": {
+      "source": ["aws.ec2", "aws.ecs", "aws.elasticache", "aws.es", "aws.redshift"],
+      "detail-type": ["AWS API Call via CloudTrail"],
+      "detail": {
+        "eventName": [
+          "AuthorizeSecurityGroupIngress",
+          "ModifyInstanceAttribute",
+          "RunTask", "CreateService",
+          "CreateDomain", "CreateElasticsearchDomain",
+          "CreateCacheCluster", "CreateCluster"
+        ],
+        "errorCode": [{ "exists": false }]
+      }
+    },
+    "Targets": [
+      {
+        "Id": "correlation-worker-queue",
+        "Arn": "arn:aws:sqs:us-east-1:111122223333:asset-correlation"
+      }
+    ]
+  },
+
+  "_notes": [
+    "errorCode exists:false filters out failed API calls (no asset was actually created).",
+    "AuthorizeSecurityGroupIngress is only interesting when the rule opens 0.0.0.0/0 or ::/0 — filter in the correlation worker, then resolve which ENIs/instances use that SG.",
+    "EKS/ECS ingress: a k8s Ingress or Service type=LoadBalancer surfaces here as a CreateLoadBalancer event (the AWS Load Balancer Controller calls ELB), so it is ALREADY covered by tier 1. For k8s-native visibility, also ship EKS control-plane *audit* logs to CloudWatch and run a subscription filter on Ingress/Service objects.",
+    "Non-AWS DNS (records in Cloudflare/GoDaddy pointing at AWS) is invisible to CloudTrail — cover it with the L3 external layer: Certificate Transparency (crt.sh) new-cert monitoring + periodic subdomain enumeration.",
+    "For org-wide coverage, deploy on the org event bus or per-account via StackSets. A nightly AWS Config / Resource Groups Tagging API reconciliation backstops anything missed."
+  ]
+}

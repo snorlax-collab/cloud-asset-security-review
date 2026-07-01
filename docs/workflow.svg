@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 900" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="dn" markerWidth="10" markerHeight="10" refX="5" refY="8" orient="auto"><path d="M1,1 L5,8 L9,1" fill="none" stroke="#94a3b8" stroke-width="1.6"/></marker>
+    <marker id="gy" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#94a3b8"/></marker>
+    <style>
+      .title{font-size:20px;font-weight:700;fill:#0f172a}
+      .subt{font-size:12px;fill:#64748b}
+      .card{fill:#ffffff;stroke:#e2e8f0;stroke-width:1.4}
+      .side{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.3}
+      .bt{font-size:13px;font-weight:700;fill:#0f172a}
+      .li{font-size:10px;fill:#475569}
+      .impl{font-size:9px;fill:#0d9488;font-family:ui-monospace,Menlo,Consolas,monospace}
+      .iac{font-size:9px;fill:#94a3b8;font-family:ui-monospace,Menlo,Consolas,monospace}
+      .h{font-size:10px;font-weight:700;fill:#334155}
+      .hg{font-size:10px;font-weight:700;fill:#94a3b8}
+      .badge-t{font-size:12px;font-weight:700;fill:#ffffff}
+      .flow{stroke:#94a3b8;stroke-width:2;fill:none}
+      .dash{stroke:#94a3b8;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+      .dashlbl{font-size:9.5px;fill:#94a3b8}
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1240" height="900" fill="#ffffff"/>
+  <text x="30" y="34" class="title">Workflow — what this automation actually runs</text>
+  <text x="30" y="56" class="subt">green mono = real module in this repo · grey = shipped as IaC (design), not deployed</text>
+
+  <!-- LEFT: visibility gap -->
+  <rect x="30" y="168" width="300" height="330" rx="12" class="side"/>
+  <text x="48" y="192" class="bt">The visibility gap</text>
+  <text x="48" y="216" class="h">TEAMS CONTINUOUSLY CREATE</text>
+  <text x="48" y="236" class="li">apps · APIs · subdomains · LBs</text>
+  <text x="48" y="252" class="li">K8s ingresses · cloud resources</text>
+  <text x="48" y="286" class="h">SECURITY LACKS VISIBILITY INTO</text>
+  <text x="48" y="306" class="li">what exists · who owns them ·</text>
+  <text x="48" y="322" class="li">whether baselines are followed</text>
+  <text x="48" y="360" class="h">IN THIS REPO</text>
+  <text x="48" y="380" class="li">src/asset_review/ · infra/</text>
+  <text x="48" y="396" class="li">Dockerfile · docker-compose.yml</text>
+  <text x="48" y="412" class="li">53 tests (pytest + moto)</text>
+  <text x="48" y="448" class="h">RUN IT</text>
+  <text x="48" y="468" class="impl">make demo · make stack</text>
+  <text x="48" y="484" class="impl">asset-review scan --host …</text>
+
+  <!-- CENTER pipeline -->
+  <rect x="380" y="80" width="400" height="56" rx="11" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.4"/>
+  <text x="580" y="104" text-anchor="middle" class="bt">New asset created</text>
+  <text x="580" y="122" text-anchor="middle" class="li">apps · APIs · subdomains · LBs · K8s ingress · cloud resources</text>
+  <line x1="580" y1="136" x2="580" y2="166" class="flow" marker-end="url(#dn)"/>
+
+  <!-- stage 1 -->
+  <rect x="380" y="168" width="400" height="92" rx="11" class="card"/>
+  <rect x="396" y="186" width="26" height="26" rx="7" fill="#2563eb"/><text x="409" y="204" text-anchor="middle" class="badge-t">1</text>
+  <text x="434" y="198" class="bt">Asset discovery</text>
+  <text x="434" y="220" class="li">Route53 · ALB/API GW · CloudFront · Lambda URL · EC2 · S3</text>
+  <text x="434" y="240" class="impl">discovery/cloudtrail.py → lambda_handler.py</text>
+  <text x="434" y="253" class="impl">events: Route53 · ELB · EC2 · S3 · API GW · Lambda URL</text>
+  <line x1="580" y1="260" x2="580" y2="288" class="flow" marker-end="url(#dn)"/>
+
+  <!-- stage 2 -->
+  <rect x="380" y="290" width="400" height="92" rx="11" class="card"/>
+  <rect x="396" y="308" width="26" height="26" rx="7" fill="#0d9488"/><text x="409" y="326" text-anchor="middle" class="badge-t">2</text>
+  <text x="434" y="320" class="bt">Metadata collection (enrichment)</text>
+  <text x="434" y="342" class="li">DNS/IP · CNAME · headers · TLS · ports · WAF/CDN · tags · tech</text>
+  <text x="434" y="362" class="impl">enrichment/: netdns · http(urllib) · tls(ssl/cryptography)</text>
+  <text x="434" y="375" class="impl">ports · fingerprint · s3 · netguard (SSRF guard)</text>
+  <line x1="580" y1="382" x2="580" y2="410" class="flow" marker-end="url(#dn)"/>
+
+  <!-- stage 3 -->
+  <rect x="380" y="412" width="400" height="92" rx="11" class="card"/>
+  <rect x="396" y="430" width="26" height="26" rx="7" fill="#d97706"/><text x="409" y="448" text-anchor="middle" class="badge-t">3</text>
+  <text x="434" y="442" class="bt">Security checks</text>
+  <text x="434" y="464" class="li">headers · TLS · admin · methods · public S3 · ports · takeover</text>
+  <text x="434" y="484" class="impl">checks/rules.py — 11-rule registry · severity + confidence</text>
+  <text x="434" y="497" class="impl">soft-404 + content validation cuts false positives</text>
+  <line x1="580" y1="504" x2="580" y2="532" class="flow" marker-end="url(#dn)"/>
+
+  <!-- stage 4 -->
+  <rect x="380" y="534" width="400" height="92" rx="11" class="card"/>
+  <rect x="396" y="552" width="26" height="26" rx="7" fill="#7c3aed"/><text x="409" y="570" text-anchor="middle" class="badge-t">4</text>
+  <text x="434" y="564" class="bt">LLM-based review</text>
+  <text x="434" y="586" class="li">analyze · prioritize · remediate → risk · impact · actions</text>
+  <text x="434" y="606" class="impl">llm/reviewer.py · claude-opus-4-8 · structured JSON</text>
+  <text x="434" y="619" class="impl">adaptive thinking · heuristic fallback (no key needed)</text>
+  <line x1="580" y1="626" x2="580" y2="654" class="flow" marker-end="url(#dn)"/>
+
+  <!-- stage 5 -->
+  <rect x="380" y="656" width="400" height="92" rx="11" class="card"/>
+  <rect x="396" y="674" width="26" height="26" rx="7" fill="#16a34a"/><text x="409" y="692" text-anchor="middle" class="badge-t">5</text>
+  <text x="434" y="686" class="bt">Findings &amp; report</text>
+  <text x="434" y="708" class="li">Slack alerts · HTML dashboard · JSON + Markdown files</text>
+  <text x="434" y="728" class="impl">notify/slack.py · report/renderer.py + dashboard.py</text>
+  <text x="434" y="741" class="impl">deterministic findings = source of truth; LLM prioritises</text>
+
+  <!-- bracket linking stages 2-4 to ephemeral -->
+  <path d="M780 290 L808 290 L808 626 L780 626" class="dash"/>
+  <text x="800" y="458" transform="rotate(-90 800 458)" text-anchor="middle" class="dashlbl">ephemeral · isolated</text>
+  <path d="M808 372 L850 372" class="dash" marker-end="url(#gy)"/>
+
+  <!-- RIGHT: orchestration -->
+  <rect x="850" y="168" width="370" height="176" rx="12" class="side"/>
+  <text x="868" y="192" class="bt">Workflow orchestration</text>
+  <text x="868" y="212" class="h">IMPLEMENTED · RUNS</text>
+  <text x="868" y="230" class="li">SQS queue + worker pool — orchestrator/</text>
+  <text x="868" y="246" class="li">discovery Lambda — lambda_handler.py</text>
+  <text x="868" y="262" class="impl">local: docker-compose + LocalStack (make stack)</text>
+  <text x="868" y="288" class="hg">SHIPPED AS IaC (not deployed)</text>
+  <text x="868" y="306" class="li">EventBridge rule · Step Functions · K8s Job</text>
+  <text x="868" y="324" class="iac">infra/eventbridge · step-functions · k8s-job</text>
+
+  <!-- RIGHT: ephemeral -->
+  <rect x="850" y="366" width="370" height="252" rx="12" class="side"/>
+  <text x="868" y="390" class="bt">Ephemeral execution</text>
+  <text x="868" y="410" class="h">IMPLEMENTED</text>
+  <text x="868" y="428" class="li">containerized worker — one scan per run</text>
+  <text x="868" y="444" class="li">non-root · read-only FS · caps dropped</text>
+  <text x="868" y="460" class="li">code-level SSRF guard — netguard.py</text>
+  <text x="868" y="476" class="impl">Dockerfile (non-root uid 65534)</text>
+  <text x="868" y="500" class="h">CLEANUP / COST</text>
+  <text x="868" y="518" class="li">container exit · SQS DLQ · pay-per-scan</text>
+  <text x="868" y="534" class="li">LLM: skip-INFO + prompt cache</text>
+  <text x="868" y="558" class="hg">IaC: isolation controls</text>
+  <text x="868" y="576" class="li">egress NetworkPolicy blocks IMDS + RFC1918</text>
+  <text x="868" y="594" class="iac">infra/k8s-scan-job.yaml</text>
+
+  <text x="30" y="866" class="subt">Roadmap (not yet built): finding lifecycle / dedup · L2 reconciliation (AWS Config / Tagging API) · L3 Certificate Transparency + DNS enumeration.</text>
+</svg>

@@ -1,0 +1,30 @@
+{
+  "version": "0",
+  "id": "a1b2c3d4-0005-0005-0005-s3putacl",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.s3",
+  "account": "111122223333",
+  "region": "us-east-1",
+  "detail": {
+    "eventName": "PutBucketAcl",
+    "awsRegion": "us-east-1",
+    "recipientAccountId": "111122223333",
+    "userIdentity": {
+      "arn": "arn:aws:sts::111122223333:assumed-role/analytics-team/etl-runner",
+      "accountId": "111122223333"
+    },
+    "requestParameters": {
+      "bucketName": "acme-analytics-exports",
+      "AccessControlPolicy": {
+        "AccessControlList": {
+          "Grant": [
+            {
+              "Grantee": { "URI": "http://acs.amazonaws.com/groups/global/AllUsers" },
+              "Permission": "READ"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "version": "0",
+  "id": "a1b2c3d4-0006-0006-0006-lambdaurl",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.lambda",
+  "account": "111122223333",
+  "region": "us-east-1",
+  "detail": {
+    "eventName": "CreateFunctionUrlConfig",
+    "awsRegion": "us-east-1",
+    "recipientAccountId": "111122223333",
+    "userIdentity": {
+      "arn": "arn:aws:sts::111122223333:assumed-role/billing-team/deployer",
+      "accountId": "111122223333"
+    },
+    "requestParameters": {
+      "functionName": "billing-export",
+      "authType": "NONE"
+    },
+    "responseElements": {
+      "functionUrl": "https://a1b2c3d4e5f6.lambda-url.us-east-1.on.aws/",
+      "authType": "NONE"
+    }
+  }
+}

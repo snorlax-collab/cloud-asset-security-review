@@ -1,0 +1,75 @@
+# Ephemeral Kubernetes Job: one short-lived, isolated Pod per asset scan.
+#
+# A controller (or KEDA scaling off the SQS queue) creates one Job per asset.
+# The Pod runs the scan, writes the report, and is reaped by ttlSecondsAfterFinished.
+# This is the "ephemeral execution" boundary: untrusted, internet-facing targets
+# are probed from a throwaway, least-privileged, network-policy-constrained Pod.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: asset-scan-
+  namespace: asset-scanner
+  labels: { app: asset-scanner }
+spec:
+  ttlSecondsAfterFinished: 300        # auto-cleanup of finished Jobs/Pods
+  backoffLimit: 2                     # bounded retries, then give up (-> DLQ via controller)
+  activeDeadlineSeconds: 300          # hard cap on a runaway scan
+  template:
+    metadata:
+      labels: { app: asset-scanner }
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false   # scanner needs no k8s API access
+      serviceAccountName: asset-scanner     # IRSA: only s3:PutObject + sqs on its own queues
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: scanner
+          image: <registry>/asset-scanner:latest
+          args: ["discover", "--event", "/work/event.json", "--json"]
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: anthropic, key: api-key } }
+            - name: ASSET_JSON
+              value: ""                # injected per-Job by the controller
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: work, mountPath: /work }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: work, emptyDir: {} }
+---
+# Deny-all-ingress + egress-only network policy for the scanner namespace.
+# The scanner initiates connections to the internet (to probe targets) but must
+# never be reachable, and must not reach internal/cluster services.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scanner-egress-only
+  namespace: asset-scanner
+spec:
+  podSelector: { matchLabels: { app: asset-scanner } }
+  policyTypes: ["Ingress", "Egress"]
+  ingress: []                         # no inbound at all
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:                    # block RFC1918 — no pivoting into internal networks
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.169.254/32     # block IMDS explicitly
+    - to: []                          # allow DNS
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }

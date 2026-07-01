@@ -1,0 +1,21 @@
+{
+  "version": "0",
+  "id": "a1b2c3d4-0008-0008-0008-hostedzone",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.route53",
+  "account": "111122223333",
+  "region": "us-east-1",
+  "detail": {
+    "eventName": "CreateHostedZone",
+    "awsRegion": "us-east-1",
+    "recipientAccountId": "111122223333",
+    "userIdentity": {
+      "arn": "arn:aws:sts::111122223333:assumed-role/platform-team/terraform",
+      "accountId": "111122223333"
+    },
+    "requestParameters": {
+      "name": "acme-labs.com.",
+      "hostedZoneConfig": { "privateZone": false }
+    }
+  }
+}
