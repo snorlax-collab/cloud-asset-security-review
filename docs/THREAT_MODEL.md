@@ -64,19 +64,24 @@ Mitigations below call out which layers apply to the **ECS Fargate path** unless
 | **Spoofing** | Forged events injected to trigger bogus scans or hide real ones | EventBridge consumes AWS-signed CloudTrail; the queue is internal. Discovery dropping malformed events fails closed (ignored), so spoofing yields no asset, not a crash. |
 | **Tampering** | Poison message loops forever; report tampering; path traversal via hostile hostname | A malformed/poison message is caught per-iteration so it **can't crash the worker**; SQS **redrive → DLQ** then quarantines it. Report filenames are slugged from the (attacker-influenced) target to prevent path traversal. Reports written to versioned S3. |
 | **Repudiation** | "Who exposed this bucket?" | Discovery records the CloudTrail **actor ARN** (`created_by`) and routes by owner tags — every finding is attributable. |
-| **Information disclosure** | Findings reveal weaknesses; LLM key / Slack webhook / data leakage | Reports are sensitive — store in a restricted bucket, least-privilege read. LLM prompt sends **compact findings + metadata, not raw bodies**; keys from secrets manager, never in the image/prompt. **Slack alerts** push findings to a channel — treat the webhook URL as a secret and keep the target channel access-controlled (findings are a roadmap of weaknesses); alerting is severity-gated and fails open so it never blocks a scan. Tenants separated by prefix/topic. |
+| **Information disclosure** | Findings reveal weaknesses; LLM key / Slack webhook / data leakage | Private, encrypted S3 bucket; **90-day lifecycle** on `reports/` ([`s3.tf`](../infra/terraform/s3.tf)). Read access is **IAM-only today** — no SSO/per-team dashboard RBAC ([SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md)). LLM prompt sends compact findings, not raw bodies. Secrets in Secrets Manager with manual rotation path. Slack channel membership = alert access control. |
 | **Denial of service** | Discovery storm (10k+/day) overwhelms scanning; scanner DoSes a shared origin | **Queue absorbs bursts** (backpressure, not loss); worker/queue layer enforces per-target & per-account concurrency caps so we don't hammer origins. |
 | **Elevation of privilege** | Compromised scanner escalates | **ECS (shipped):** non-root (`65534`), read-only root filesystem, all capabilities dropped, writable `/tmp` mount only ([`ecs.tf`](../infra/terraform/ecs.tf)). **K8s stub:** same plus seccomp `RuntimeDefault`. Task role can write reports and ack SQS — nothing else. |
 
-## 5. Assumptions & residual risk
+## 5. Assumptions, gaps & residual risk
 
-- **Assumed:** CloudTrail/EventBridge is enabled org-wide and reasonably timely; the queue/secrets infra is trusted; the LLM provider is trusted with finding-level metadata.
-- **Residual:** event-driven discovery can miss exposures with no clean creation event (e.g. a security-group change) — mitigated, not eliminated, by the **reconciliation scan** backstop. The curated check set has finite coverage (deeper scanners are an opt-in stage). The LLM can still skew narrative tone under heavy injection (bounded by deterministic findings).
-- **Explicitly out of scope for the prototype:** authenticated/credentialed scanning of targets, exploitation/PoC, and write actions of any kind — the scanner is strictly read-only.
+- **Assumed:** CloudTrail/EventBridge is enabled and reasonably timely; queue/secrets infra is trusted.
+- **Residual:** finite check coverage; LLM narrative can skew under injection (deterministic findings stand).
+- **Operational gaps (documented, not hidden):** report access is IAM-only; cross-account is single-account POC; no automated secret rotation; no runtime compromise detection beyond logs. See [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md) for target models, retention, supply chain, and incident response.
+- **Out of scope:** authenticated scanning, exploitation/PoC, write actions — scanner is read-only.
+
+## 6. Incident response
+
+Preventive controls are in §3–§4. For **kill-switch, credential revocation, and recovery** see [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md).
 
 ---
 
-## 6. Threat model of the *reviewed assets* (what the checks defend against)
+## 7. Threat model of the *reviewed assets* (what the checks defend against)
 
 This is what the security-checks stage exists to catch — each check maps to an attacker objective:
 

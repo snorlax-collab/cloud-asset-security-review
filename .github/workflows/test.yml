@@ -21,5 +21,8 @@ jobs:
       - name: Build Lambda zip (packaging smoke test)
         run: bash scripts/build_lambda_zip.sh
 
+      - name: Dependency audit
+        run: pip install pip-audit && pip-audit -r pyproject.toml --extra llm --extra aws --extra dev || true
+
       - name: Run tests
         run: pytest -q

@@ -8,7 +8,7 @@ New asset → Discovery → Enrichment → Security checks → LLM review → Re
 
 Runs locally with **no AWS account and no API key**. Sample CloudTrail events drive discovery; the LLM falls back to a heuristic when no API key is set.
 
-**More detail:** [Production setup](docs/PRODUCTION_SETUP.md) · [Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md) · [Threat model](docs/THREAT_MODEL.md) · [Sample report (PDF)](docs/sample-report.pdf)
+**More detail:** [Production setup](docs/PRODUCTION_SETUP.md) · [Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md) · [Threat model](docs/THREAT_MODEL.md) · [Security ops](docs/SECURITY_OPERATIONS.md) · [Sample report (PDF)](docs/sample-report.pdf)
 
 ## Architecture
 

@@ -70,19 +70,22 @@ API keys and Slack webhooks go to Secrets Manager via `make set-scanner-secret` 
 
 Local validation: `make stack` (LocalStack — code guards only) and `make test`.
 
-**Also:** encrypted private S3 bucket, 90-day report lifecycle, no public dashboard URL.
+**Also:** encrypted private S3 bucket, **90-day report + version lifecycle** (`report_retention_days`), no public dashboard URL. Ops gaps (authn/z, cross-account, rotation, IR): [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md).
 
 ---
 
-## Out of scope (current release)
+## Known gaps (honest scope)
 
-| Area | Notes |
-|---|---|
-| Tier-2 correlation | Resolve SG/ECS signals to public IPs via read-only `Describe*` |
-| Finding lifecycle | Dedup, first-seen, suppress accepted risks |
-| Multi-account S3 authority | Assume-role per account for authoritative bucket policy checks |
-| Public dashboard | Would require CloudFront (or similar) with auth |
-| External discovery | Certificate Transparency, passive DNS for non-AWS names |
+| Area | Today | Target (documented) |
+|---|---|---|
+| Report access | IAM-only on private S3 | CloudFront + SSO, per-team prefix RBAC |
+| Multi-account | Single-account deploy | Org trail → central stack + `AssumeRole` reads |
+| Secrets rotation | Manual via `make set-scanner-secret` | Quarterly cadence; optional SM rotation Lambda |
+| Incident response | — | Runbook in SECURITY_OPERATIONS.md |
+| Supply chain | ECR scan-on-push | + digest-pinned base image, pip-audit |
+| Finding lifecycle | — | Dedup, first-seen, suppress accepted risks |
+| Tier-2 correlation | Not shipped | SG/ECS signals → public IP via `Describe*` |
+| External discovery | Not shipped | Certificate Transparency, passive DNS |
 
 ---
 
@@ -90,4 +93,5 @@ Local validation: `make stack` (LocalStack — code guards only) and `make test`
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — component map
 - [THREAT_MODEL.md](THREAT_MODEL.md) — scanner abuse cases and mitigations
+- [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md) — access control, retention, supply chain, incident response
 - [../infra/terraform/](../infra/terraform/) — production IaC

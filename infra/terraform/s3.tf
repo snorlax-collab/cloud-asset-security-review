@@ -43,5 +43,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "reports" {
     status = "Enabled"
     filter { prefix = "reports/" }
     expiration { days = var.report_retention_days }
+
+    noncurrent_version_expiration {
+      noncurrent_days = var.report_retention_days
+    }
   }
 }
