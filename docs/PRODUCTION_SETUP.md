@@ -296,4 +296,4 @@ See [`.env.example`](../.env.example). Local `make scan` / `make poc` read from 
 - **Public dashboard URL** — bucket is private; add CloudFront + auth if needed
 - **Multi-account / org trail** — deploy per account or on org event bus (same Terraform, different account/profile)
 
-For architecture details see [ARCHITECTURE.md](../ARCHITECTURE.md).
+For architecture details see [ARCHITECTURE.md](ARCHITECTURE.md).

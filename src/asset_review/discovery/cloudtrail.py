@@ -9,7 +9,7 @@ scans because:
   * it scales with *change rate* not *fleet size* (cheap at 10k+ assets/day),
   * each event already carries the actor/account/region for ownership.
 
-A periodic reconciliation scan is still valuable as a safety net (see DESIGN.md),
+A periodic reconciliation scan is still valuable as a safety net (see docs/DESIGN.md),
 but event-driven discovery is the primary path.
 
 This module is intentionally pure: ``event -> list[Asset]``. A single API call

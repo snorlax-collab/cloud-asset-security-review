@@ -8,7 +8,7 @@ New asset → Discovery → Enrichment → Security checks → LLM review → Re
 
 Runs locally with **no AWS account and no API key**. Sample CloudTrail events drive discovery; the LLM falls back to a heuristic when no API key is set.
 
-**More detail:** [Production setup](docs/PRODUCTION_SETUP.md) · [Architecture](ARCHITECTURE.md) · [Design](DESIGN.md) · [Threat model](THREAT_MODEL.md) · [Sample report (PDF)](docs/sample-report.pdf)
+**More detail:** [Production setup](docs/PRODUCTION_SETUP.md) · [Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md) · [Threat model](docs/THREAT_MODEL.md) · [Sample report (PDF)](docs/sample-report.pdf)
 
 ## Architecture
 
@@ -18,7 +18,7 @@ Runs locally with **no AWS account and no API key**. Sample CloudTrail events dr
 
 ## Design decisions & tradeoffs
 
-Short version — full rationale in [DESIGN.md](DESIGN.md):
+Short version — full rationale in [docs/DESIGN.md](docs/DESIGN.md):
 
 - **Checks find issues; LLM explains them** — no hallucinated vulnerabilities
 - **CloudTrail events trigger scans** — fast, but misses non-AWS DNS and delayed events
@@ -145,6 +145,6 @@ Terraform modules: [`infra/terraform/`](infra/terraform/). **Setup guide:** [`do
 ```
 src/asset_review/   discovery, enrichment, checks, llm, orchestrator, report, storage
 infra/              Terraform (production) + EventBridge/K8s stubs
-docs/               diagrams + sample reports
+docs/               architecture, design, threat model, production setup, sample reports
 tests/              85 tests (no network required)
 ```

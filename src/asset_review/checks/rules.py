@@ -3,7 +3,7 @@
 Grouped loosely by category: HTTP security headers, TLS hygiene, exposed
 surfaces (admin/swagger/dangerous methods), network exposure (ports/WAF), and
 subdomain-takeover indicators. Severities follow a rough CVSS-like intuition and
-are documented in DESIGN.md.
+are documented in docs/DESIGN.md.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # Design decisions & tradeoffs
 
-Architecture notes for this control. Diagrams: [ARCHITECTURE.md](ARCHITECTURE.md). Deployment: [docs/PRODUCTION_SETUP.md](docs/PRODUCTION_SETUP.md).
+Architecture notes for this control. Diagrams: [ARCHITECTURE.md](ARCHITECTURE.md). Deployment: [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md).
 
 ---
 
@@ -86,4 +86,4 @@ Local validation: `make stack` (LocalStack path) and `make test`.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — component map
 - [THREAT_MODEL.md](THREAT_MODEL.md) — scanner abuse cases and mitigations
-- [infra/terraform/](infra/terraform/) — production IaC
+- [../infra/terraform/](../infra/terraform/) — production IaC

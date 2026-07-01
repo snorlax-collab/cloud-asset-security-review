@@ -10,7 +10,7 @@ Design choices (security-architect lens):
     failures are logged and swallowed.
   * **Webhook is a secret:** read from env/.env (→ secrets manager in prod), never
     logged. Findings reveal weaknesses, so the target channel must be access-
-    controlled (see THREAT_MODEL.md).
+    controlled (see docs/THREAT_MODEL.md).
 
 Stdlib-only (urllib) — no slack_sdk dependency.
 """

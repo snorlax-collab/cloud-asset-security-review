@@ -3,7 +3,7 @@
 The scanner connects to attacker-controlled targets and parses their responses,
 so it must never be coerced into reaching the cloud metadata endpoint
 (169.254.169.254) or internal/RFC1918 networks — the classic SSRF-against-the-
-scanner attack in THREAT_MODEL.md. This is the *code-level* complement to the
+scanner attack in docs/THREAT_MODEL.md. This is the *code-level* complement to the
 egress NetworkPolicy in infra/k8s-scan-job.yaml (defense in depth: the code is
 safe even when run locally or in a Lambda without network egress controls).
 """
