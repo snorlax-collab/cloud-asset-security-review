@@ -1,99 +1,121 @@
 # Threat Model
 
-A security tool is itself attack surface. This document models the system the way
-a security architect would review it before shipping: trust boundaries, what an
-attacker could try, and what the design does about it. It also covers the threat
-model of the *assets being reviewed* (what the checks are actually defending
-against) at the end.
+> **Scope:** This document models threats against the **shipped production deploy** (Terraform → ECS Fargate, [`../infra/terraform/`](../infra/terraform/`)). Reference stubs (K8s Job, local demo) are noted where controls differ.  
+> **Owner:** Maintainer · **Last reviewed:** 2026-07-01 · **Review policy:** [DOCUMENT_GOVERNANCE.md](DOCUMENT_GOVERNANCE.md)
+
+A security tool is attack surface. This doc covers (1) the platform we run, and (2) the assets our checks defend against (§8).
 
 ---
 
-## 1. System overview & assets to protect
+## 1. Attacker personas
 
-```
- AWS accounts ─▶ EventBridge ─▶ Discovery Lambda ─▶ SQS ─▶ Ephemeral scanner ─▶ Reports (S3)
-   (data)          (data)         (compute)       (queue)   (compute, untrusted    (sink)
-                                                              network egress)
-```
-
-What we're protecting:
-
-| Asset | Why it matters |
-|---|---|
-| The scanner's execution role / credentials | Standing access to scan/report infra; a prize for an attacker who controls a scan target. |
-| The accounts being observed | The tool sees resource metadata across many teams. |
-| Findings/reports | Reveal exactly where an org is weak — a roadmap for an attacker. |
-| The LLM API key | Billable credential; usable for unrelated abuse if leaked. |
-| Availability of the pipeline | If discovery/scanning is silently dropped, exposure goes unseen. |
-
-## 2. Trust boundaries
-
-1. **Untrusted internet ↔ scanner.** The scanner *initiates* connections to attacker-controllable, internet-facing targets and parses their responses. **This is the highest-risk boundary** — the target is hostile by assumption.
-2. **AWS control plane ↔ discovery.** CloudTrail/EventBridge events are trusted (AWS-signed) but *attacker-influenced* in content (an attacker who can create resources controls field values like hostnames/tags).
-3. **Queue ↔ workers.** Messages are internal but should still be treated as data, not code.
-4. **Scanner ↔ LLM provider.** Findings/metadata leave our boundary to Anthropic; an external service call.
-5. **Tenant ↔ tenant.** Multiple teams' assets flow through shared infrastructure.
-
-## 3. Primary threat: the scanner turned against us
-
-The defining risk of an outbound scanner is that **a malicious target coerces the scanner into doing something useful for the attacker.**
-
-### What actually deploys
-
-| Path | Status | Isolation |
+| Persona | Goal | Relevant mitigations |
 |---|---|---|
-| **Terraform → ECS Fargate** | Shipped (`make deploy-apply`, [`../infra/terraform/`](../infra/terraform/)) | Dedicated public subnet + NACL egress denies (RFC1918 + `169.254.0.0/16`), no SG ingress, hardened task definition, least-privilege task role |
-| **Kubernetes Job** | Reference stub ([`../infra/k8s-scan-job.yaml`](../infra/k8s-scan-job.yaml)) | NetworkPolicy egress filter + pod hardening — not wired to the queue in this repo |
-| **Local / Docker Compose** | Dev demo only | Code-level guards only; no network policy |
-
-Mitigations below call out which layers apply to the **ECS Fargate path** unless noted.
-
-| Attack | Vector | Mitigation |
-|---|---|---|
-| **SSRF / credential theft via IMDS** | Target redirects/coerces the scanner to fetch link-local metadata (`169.254.169.254`, ECS task metadata at `169.254.170.2`) | **Code:** HTTP/TLS/port probes block private/link-local targets and redirect chains ([`netguard.py`](../src/asset_review/enrichment/netguard.py)). **Network (ECS):** subnet NACL denies `169.254.0.0/16` and all RFC1918 egress ([`network.tf`](../infra/terraform/network.tf)). **Network (K8s stub):** NetworkPolicy with the same CIDR blocks. **Identity:** task role limited to SQS consume + S3 `PutObject` on `reports/*` — no standing access to scanned accounts. |
-| **Pivot into internal network** | Target induces requests to internal services | Same NACL / NetworkPolicy RFC1918 denies. ECS tasks run in a **dedicated subnet** (not shared with app tiers); security group has **no ingress rules**. |
-| **Malicious response payload** | Hostile TLS cert, headers, HTML, DNS, or huge body crashes/exploits the parser | Read-only, size-bounded probes; per-probe error isolation; DNS recursion bounded ([`netdns.py`](../src/asset_review/enrichment/netdns.py)); TLS parsed without executing target content. No HTML/JS rendering. |
-| **Resource exhaustion / hang** | Slowloris, tarpit, infinite redirect | Per-probe timeouts; redirect cap + private-host redirect refusal; SQS visibility timeout + DLQ; bounded port list. |
-| **Cross-scan contamination** | One target poisons state used by the next scan | Workers write to `/tmp` only; reports go to S3. Tasks are replaceable Fargate containers (not long-lived shared processes with attacker-controlled filesystem state beyond a single poll cycle). |
-| **Prompt injection of the LLM** | Target embeds instructions in headers/title | LLM reviews deterministic findings only; report HTML escapes scan-derived strings; Slack fields escaped. |
-
-## 4. Other threats (STRIDE-flavored)
-
-| Category | Threat | Mitigation / note |
-|---|---|---|
-| **Spoofing** | Forged events injected to trigger bogus scans or hide real ones | EventBridge consumes AWS-signed CloudTrail; the queue is internal. Discovery dropping malformed events fails closed (ignored), so spoofing yields no asset, not a crash. |
-| **Tampering** | Poison message loops forever; report tampering; path traversal via hostile hostname | A malformed/poison message is caught per-iteration so it **can't crash the worker**; SQS **redrive → DLQ** then quarantines it. Report filenames are slugged from the (attacker-influenced) target to prevent path traversal. Reports written to versioned S3. |
-| **Repudiation** | "Who exposed this bucket?" | Discovery records the CloudTrail **actor ARN** (`created_by`) and routes by owner tags — every finding is attributable. |
-| **Information disclosure** | Findings reveal weaknesses; LLM key / Slack webhook / data leakage | Private, encrypted S3 bucket; **90-day lifecycle** on `reports/` ([`s3.tf`](../infra/terraform/s3.tf)). Read access is **IAM-only today** — no SSO/per-team dashboard RBAC ([SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md)). LLM prompt sends compact findings, not raw bodies. Secrets in Secrets Manager with manual rotation path. Slack channel membership = alert access control. |
-| **Denial of service** | Discovery storm (10k+/day) overwhelms scanning; scanner DoSes a shared origin | **Queue absorbs bursts** (backpressure, not loss); worker/queue layer enforces per-target & per-account concurrency caps so we don't hammer origins. |
-| **Elevation of privilege** | Compromised scanner escalates | **ECS (shipped):** non-root (`65534`), read-only root filesystem, all capabilities dropped, writable `/tmp` mount only ([`ecs.tf`](../infra/terraform/ecs.tf)). **K8s stub:** same plus seccomp `RuntimeDefault`. Task role can write reports and ack SQS — nothing else. |
-
-## 5. Assumptions, gaps & residual risk
-
-- **Assumed:** CloudTrail/EventBridge is enabled and reasonably timely; queue/secrets infra is trusted.
-- **Residual:** finite check coverage; LLM narrative can skew under injection (deterministic findings stand).
-- **Operational gaps (documented, not hidden):** report access is IAM-only; cross-account is single-account POC; no automated secret rotation; no runtime compromise detection beyond logs. See [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md) for target models, retention, supply chain, and incident response.
-- **Out of scope:** authenticated scanning, exploitation/PoC, write actions — scanner is read-only.
-
-## 6. Incident response
-
-Preventive controls are in §3–§4. For **kill-switch, credential revocation, and recovery** see [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md).
+| **External attacker controlling a scan target** | SSRF to IMDS/VPC, crash parser, exhaust resources | `netguard.py`, NACL egress, hardened task, least-privilege task role |
+| **Malicious tenant (multi-team)** | Read another team's findings in S3 or Slack | **Gap today** — IAM-only bucket access; target: per-prefix RBAC ([SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md)) |
+| **Insider with AWS creds** | Exfiltrate report bucket, disable discovery | IAM least privilege, CloudTrail on control plane, 90-day retention |
+| **Supply-chain attacker** | Backdoored container or dependency | ECR scan-on-push, CI tests, digest pinning (recommended) |
+| **Operator error** | Public bucket, leaked webhook/API key | S3 public-access block, secrets outside Terraform state, rotation runbook |
 
 ---
 
-## 7. Threat model of the *reviewed assets* (what the checks defend against)
+## 2. System overview
 
-This is what the security-checks stage exists to catch — each check maps to an attacker objective:
+```
+ AWS accounts ─▶ EventBridge ─▶ Discovery Lambda ─▶ SQS ─▶ ECS scanner ─▶ Reports (S3)
+                                                      │
+                                           Slack / Anthropic (external)
+```
 
-| Attacker objective | Signal the checks look for |
+**Assets to protect:** scanner task role, reports bucket, LLM/Slack secrets, pipeline availability, observed-account metadata.
+
+---
+
+## 3. STRIDE by element (systematic coverage)
+
+Ratings: **L** = Likelihood, **I** = Impact (H/M/L). **Priority** = combined focus (P1 highest).  
+**Deploy column:** which stack the mitigation applies to.
+
+| Element | S | T | R | I | D | E | Priority threats |
+|---|---|---|---|---|---|---|---|
+| **EventBridge / CloudTrail** | Forged events (L) | — | Missing audit (L) | — | Event flood (M) | — | DoS via event storm **P2** |
+| **Discovery Lambda** | — | Bad parse → crash (L) | — | Leak in logs (L) | — | — | Low — thin, no probe |
+| **SQS / DLQ** | Poison message (M) | — | — | — | Queue flood (M) | — | Poison loop **P2**; DLQ + worker try/except |
+| **ECS scanner** | — | Hostile response (M) | — | SSRF exfil (M) | Scan hang (M) | Container escape (L) | **SSRF P1**, parser abuse **P2** |
+| **S3 reports** | — | Object tamper (L) | — | Bucket read (H) | — | — | Report disclosure **P1** (IAM-only today) |
+| **Slack / Anthropic** | Webhook spoof (L) | — | — | Finding leakage (M) | API cost abuse (M) | — | Secret leak **P2** |
+| **Tenant isolation** | Cross-team read (M) | — | — | Shared Slack channel (M) | — | — | **Malicious tenant P2** — not fully mitigated |
+
+**Mitigations (ECS deploy):** EventBridge = AWS-signed events; SQS = validation + DLQ; scanner = netguard + NACL + hardened task + narrow IAM; S3 = encryption, private, lifecycle; secrets = Secrets Manager.
+
+**Not modeled in K8s stub-only controls** unless marked — production controls live in `ecs.tf` / `network.tf`.
+
+---
+
+## 4. Primary threats (scanner as victim)
+
+| Threat | Persona | L | I | Pri | Mitigation (ECS) |
+|---|---|---|---|---|---|
+| SSRF / IMDS credential theft | External target | M | H | **P1** | Code block + NACL deny `169.254.0.0/16` + RFC1918; task role useless against member accounts |
+| Pivot to internal network | External target | M | H | **P1** | Same NACL; dedicated subnet; no SG ingress |
+| Parser / protocol abuse (RCE, crash) | External target | M | M | **P2** | Size bounds, no HTML exec, isolated errors, non-root read-only container |
+| Prompt injection (narrative skew) | External target | M | L | **P3** | LLM reviews findings only; deterministic severities stand |
+| Cross-tenant report access | Malicious tenant | M | H | **P2** | **Not shipped** — IAM-only; see SECURITY_OPERATIONS target design |
+| Compromised scanner task | External target | L | M | **P2** | Cap-drop, read-only rootfs; role = SQS + S3 write only |
+| Supply-chain backdoor | Supply chain | L | H | **P2** | ECR scan-on-push; pin image digest; pip-audit in CI |
+
+Local demo (`make stack`) has **code-level guards only** — no NACL or container hardening equivalent.
+
+K8s stub ([`../infra/k8s-scan-job.yaml`](../infra/k8s-scan-job.yaml)): NetworkPolicy + seccomp — **reference only**, not `make deploy-apply`.
+
+---
+
+## 5. Other STRIDE notes
+
+| Category | Threat | Mitigation |
+|---|---|---|
+| **Spoofing** | Forged CloudTrail events | EventBridge trust model; malformed discovery input dropped |
+| **Tampering** | Poison queue message; path traversal in filenames | Worker try/except; slugged filenames; versioned S3 |
+| **Repudiation** | Who created the asset? | `created_by` from CloudTrail in reports |
+| **Information disclosure** | Reports / secrets / Slack | Private S3, 90-day lifecycle, IAM-only read; manual secret rotation |
+| **Denial of service** | Burst discovery or slow targets | SQS backpressure; probe timeouts; scale workers |
+| **Elevation** | Break out of container | ECS hardening; minimal task role |
+
+---
+
+## 6. Assumptions & gaps
+
+- CloudTrail/EventBridge trusted and enabled.
+- **Operational gaps:** no SSO dashboard, single-account POC, no runtime compromise detection by default — [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md).
+- **Out of scope:** credentialed scanning, exploitation, write probes.
+
+---
+
+## 7. Incident response
+
+Kill-switch and recovery: [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md).
+
+---
+
+## 8. Threats to reviewed assets (what checks detect)
+
+What attackers want from **customer internet-facing assets** — not the scanner itself:
+
+| Objective | Check signal |
 |---|---|
-| **Steal data at rest** | Public S3 (listable bucket, AllUsers/`*` ACL or policy, no Block Public Access). |
-| **Reach a data store directly** | Open sensitive ports (Redis/Mongo/Elasticsearch/DB/SMB) reachable from the internet — often unauthenticated by default. |
-| **Take over a name** | Subdomain-takeover indicators (dangling CNAME to a claimable provider; provider "not found" fingerprints). |
-| **Find the attack surface** | Exposed Swagger/OpenAPI, admin panels, `actuator`, `.git`/`.env` secret files. |
-| **Intercept / downgrade traffic** | Missing HSTS, deprecated TLS, expired/self-signed/mismatched certs, plaintext-only HTTP. |
-| **Tamper / probe** | Dangerous HTTP methods (PUT/DELETE/TRACE). |
-| **Walk in unprotected** | Internet-facing hostnames that look internal (admin/staging/jenkins); no WAF/CDN in front of a public web app. |
-| **Recon the stack** | Server-version banners and technology fingerprints (informational, aids targeting). |
+| Steal data at rest | Public S3 list/ACL/policy |
+| Reach data stores | Sensitive ports open (Redis, DB, …) |
+| Subdomain takeover | Dangling CNAME / provider fingerprints |
+| Map attack surface | Exposed admin, Swagger, `.env`, `.git` |
+| Downgrade / intercept | Weak TLS, missing HSTS |
+| Unauthenticated access | Dangerous methods, no WAF |
 
-The LLM stage then ranks these by realistic exploitation path and business impact, and routes them to the owning team.
+Findings use **severity + confidence**; the LLM adds narrative only.
+
+---
+
+## References
+
+- [DOCUMENT_GOVERNANCE.md](DOCUMENT_GOVERNANCE.md) — when to update this doc
+- [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md) — access, IR, retention
+- [ARCHITECTURE.md](ARCHITECTURE.md) — component map

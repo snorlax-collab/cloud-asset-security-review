@@ -1,5 +1,7 @@
 # Architecture
 
+> **Scope:** Production path = Terraform ECS Fargate ([`../infra/terraform/`](../infra/terraform/`)). K8s/Step Functions stubs are reference only. **Governance:** [DOCUMENT_GOVERNANCE.md](DOCUMENT_GOVERNANCE.md)
+
 ![Architecture diagram](architecture.svg)
 
 ## Pipeline

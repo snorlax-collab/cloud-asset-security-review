@@ -92,6 +92,7 @@ Local validation: `make stack` (LocalStack — code guards only) and `make test`
 ## References
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — component map
-- [THREAT_MODEL.md](THREAT_MODEL.md) — scanner abuse cases and mitigations
+- [THREAT_MODEL.md](THREAT_MODEL.md) — STRIDE matrix, personas, risk priorities
 - [SECURITY_OPERATIONS.md](SECURITY_OPERATIONS.md) — access control, retention, supply chain, incident response
+- [DOCUMENT_GOVERNANCE.md](DOCUMENT_GOVERNANCE.md) — doc review policy
 - [../infra/terraform/](../infra/terraform/) — production IaC
