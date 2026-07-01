@@ -1,16 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 600" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 620" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
   <defs>
     <marker id="ap" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7c3aed"/></marker>
     <marker id="ag" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#16a34a"/></marker>
     <style>
       .title{font-size:20px;font-weight:700;fill:#0f172a}
       .leg{font-size:12px;fill:#334155}
+      .note{font-size:10px;fill:#64748b}
       .phase{font-size:11px;font-weight:700;fill:#94a3b8;letter-spacing:.6px}
       .grp{fill:#f8fafc;stroke:#94a3b8;stroke-width:1.4;stroke-dasharray:5 4}
       .grplbl{font-size:12px;font-weight:700;fill:#475569}
       .ephem{fill:#f0fdf4;stroke:#16a34a;stroke-width:1.6;stroke-dasharray:6 4}
       .queue{fill:#fef9c3;stroke:#ca8a04;stroke-width:1.5}
       .box{fill:#ffffff;stroke:#cbd5e1;stroke-width:1.4}
+      .stub{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.2;stroke-dasharray:4 3}
       .bt{font-size:12.5px;font-weight:600;fill:#0f172a}
       .bs{font-size:10px;fill:#64748b}
       .ep{stroke:#7c3aed;stroke-width:2;fill:none}
@@ -18,23 +20,22 @@
     </style>
   </defs>
 
-  <rect x="0" y="0" width="1120" height="600" fill="#ffffff"/>
-  <text x="30" y="34" class="title">AI-Assisted Cloud Asset Security Review — Architecture</text>
+  <rect x="0" y="0" width="1120" height="620" fill="#ffffff"/>
+  <text x="30" y="34" class="title">Architecture — production deploy (Terraform ECS Fargate)</text>
+  <text x="30" y="52" class="note">make deploy-apply · single-account POC today · org multi-account = target (see SECURITY_OPERATIONS.md)</text>
 
-  <!-- legend -->
   <line x1="760" y1="26" x2="795" y2="26" class="ep" marker-end="url(#ap)"/>
   <text x="802" y="30" class="leg">Alert flow</text>
   <line x1="760" y1="46" x2="795" y2="46" class="dp" marker-end="url(#ag)"/>
-  <text x="802" y="50" class="leg">Asset / data flow</text>
+  <text x="802" y="50" class="leg">Data flow</text>
 
-  <!-- phase captions -->
   <text x="205" y="80" text-anchor="middle" class="phase">1 · DISCOVER</text>
-  <text x="685" y="80" text-anchor="middle" class="phase">2 ENRICH · 3 CHECK · 4 REVIEW</text>
+  <text x="685" y="80" text-anchor="middle" class="phase">2–4 · SCAN PIPELINE</text>
   <text x="942" y="80" text-anchor="middle" class="phase">5 · REPORT &amp; ALERT</text>
 
-  <!-- Account A -->
-  <rect x="30" y="92" width="340" height="188" rx="12" class="grp"/>
-  <text x="44" y="112" class="grplbl">AWS Account A (team)</text>
+  <!-- AWS account -->
+  <rect x="30" y="92" width="340" height="200" rx="12" class="grp"/>
+  <text x="44" y="112" class="grplbl">AWS account · CloudTrail</text>
   <rect x="48" y="122" width="142" height="96" rx="10" class="box"/>
   <text x="119" y="150" text-anchor="middle" class="bt">Resource created</text>
   <text x="119" y="168" text-anchor="middle" class="bs">Route53 · ALB · API GW</text>
@@ -42,45 +43,35 @@
   <text x="119" y="196" text-anchor="middle" class="bs">→ CloudTrail event</text>
   <rect x="228" y="140" width="126" height="60" rx="10" class="box"/>
   <text x="291" y="165" text-anchor="middle" class="bt">EventBridge</text>
-  <text x="291" y="182" text-anchor="middle" class="bs">→ Discovery λ</text>
+  <text x="291" y="182" text-anchor="middle" class="bs">tier-1 rule</text>
+  <rect x="228" y="210" width="126" height="52" rx="10" class="box"/>
+  <text x="291" y="232" text-anchor="middle" class="bt">Discovery λ</text>
+  <text x="291" y="248" text-anchor="middle" class="bs">event → Asset</text>
   <line x1="190" y1="170" x2="228" y2="170" class="dp" marker-end="url(#ag)"/>
-
-  <!-- Account B -->
-  <rect x="30" y="302" width="340" height="188" rx="12" class="grp"/>
-  <text x="44" y="322" class="grplbl">AWS Account B (team)</text>
-  <rect x="48" y="332" width="142" height="96" rx="10" class="box"/>
-  <text x="119" y="360" text-anchor="middle" class="bt">Resource created</text>
-  <text x="119" y="378" text-anchor="middle" class="bs">Route53 · ALB · API GW</text>
-  <text x="119" y="392" text-anchor="middle" class="bs">EC2 · S3 · Lambda URL</text>
-  <text x="119" y="406" text-anchor="middle" class="bs">→ CloudTrail event</text>
-  <rect x="228" y="350" width="126" height="60" rx="10" class="box"/>
-  <text x="291" y="375" text-anchor="middle" class="bt">EventBridge</text>
-  <text x="291" y="392" text-anchor="middle" class="bs">→ Discovery λ</text>
-  <line x1="190" y1="380" x2="228" y2="380" class="dp" marker-end="url(#ag)"/>
+  <line x1="291" y1="200" x2="291" y2="210" class="dp" marker-end="url(#ag)"/>
 
   <!-- Queue -->
   <rect x="408" y="246" width="122" height="90" rx="12" class="queue"/>
-  <text x="469" y="284" text-anchor="middle" class="bt">Asset queue</text>
-  <text x="469" y="301" text-anchor="middle" class="bs">SQS · dedup · DLQ</text>
-  <path d="M354,170 L388,170 L388,274 L408,274" class="dp" marker-end="url(#ag)"/>
-  <path d="M354,380 L388,380 L388,308 L408,308" class="dp" marker-end="url(#ag)"/>
+  <text x="469" y="284" text-anchor="middle" class="bt">SQS</text>
+  <text x="469" y="301" text-anchor="middle" class="bs">dedup · DLQ</text>
+  <path d="M354,238 L388,238 L388,274 L408,274" class="dp" marker-end="url(#ag)"/>
 
-  <!-- Ephemeral scanner -->
+  <!-- ECS workers -->
   <rect x="560" y="118" width="252" height="366" rx="14" class="ephem"/>
-  <text x="575" y="140" class="grplbl">Ephemeral scanner</text>
-  <text x="575" y="156" class="bs">K8s Job / Fargate / Lambda · isolated, auto-cleaned</text>
+  <text x="575" y="140" class="grplbl">ECS Fargate workers</text>
+  <text x="575" y="156" class="bs">always-on pool · dedicated subnet · NACL egress filter</text>
   <rect x="582" y="170" width="208" height="58" rx="10" class="box"/>
   <text x="686" y="192" text-anchor="middle" class="bt">Enrichment</text>
-  <text x="686" y="209" text-anchor="middle" class="bs">DNS · HTTP · TLS · ports · WAF · tags</text>
+  <text x="686" y="209" text-anchor="middle" class="bs">DNS · HTTP · TLS · ports · WAF</text>
   <rect x="582" y="242" width="208" height="58" rx="10" class="box"/>
   <text x="686" y="264" text-anchor="middle" class="bt">Security checks</text>
-  <text x="686" y="281" text-anchor="middle" class="bs">headers · TLS · S3 · ports · takeover</text>
+  <text x="686" y="281" text-anchor="middle" class="bs">rule registry · severity + confidence</text>
   <rect x="582" y="314" width="208" height="58" rx="10" class="box"/>
-  <text x="686" y="336" text-anchor="middle" class="bt">LLM review — Claude</text>
-  <text x="686" y="353" text-anchor="middle" class="bs">prioritise · impact · remediate</text>
+  <text x="686" y="336" text-anchor="middle" class="bt">LLM review</text>
+  <text x="686" y="353" text-anchor="middle" class="bs">Claude · heuristic fallback</text>
   <rect x="582" y="386" width="208" height="50" rx="10" class="box"/>
   <text x="686" y="408" text-anchor="middle" class="bt">Report</text>
-  <text x="686" y="423" text-anchor="middle" class="bs">JSON · Markdown · dashboard</text>
+  <text x="686" y="423" text-anchor="middle" class="bs">JSON · MD → S3 upload</text>
   <path d="M686,228 L686,242" class="dp" marker-end="url(#ag)"/>
   <path d="M686,300 L686,314" class="dp" marker-end="url(#ag)"/>
   <path d="M686,372 L686,386" class="dp" marker-end="url(#ag)"/>
@@ -89,22 +80,21 @@
   <!-- Outputs -->
   <rect x="852" y="150" width="188" height="50" rx="10" class="box"/>
   <text x="946" y="172" text-anchor="middle" class="bt">Slack</text>
-  <text x="946" y="187" text-anchor="middle" class="bs">severity + confidence gated</text>
+  <text x="946" y="187" text-anchor="middle" class="bs">new asset + severity alerts</text>
   <rect x="852" y="212" width="188" height="50" rx="10" class="box"/>
-  <text x="946" y="234" text-anchor="middle" class="bt">SNS / pager</text>
-  <text x="946" y="249" text-anchor="middle" class="bs">critical → on-call</text>
-  <rect x="852" y="292" width="188" height="50" rx="10" class="box"/>
-  <text x="946" y="314" text-anchor="middle" class="bt">S3 report store</text>
-  <text x="946" y="329" text-anchor="middle" class="bs">audit · per-team prefix</text>
-  <rect x="852" y="354" width="188" height="50" rx="10" class="box"/>
-  <text x="946" y="376" text-anchor="middle" class="bt">Dashboard</text>
-  <text x="946" y="391" text-anchor="middle" class="bs">browsable findings</text>
+  <text x="946" y="234" text-anchor="middle" class="bt">S3 reports bucket</text>
+  <text x="946" y="249" text-anchor="middle" class="bs">private · encrypted · 90d lifecycle</text>
+  <rect x="852" y="274" width="188" height="50" rx="10" class="box"/>
+  <text x="946" y="296" text-anchor="middle" class="bt">Dashboard sync λ</text>
+  <text x="946" y="311" text-anchor="middle" class="bs">rebuilds index.html · 5 min</text>
+  <rect x="852" y="336" width="188" height="44" rx="10" class="stub"/>
+  <text x="946" y="356" text-anchor="middle" class="bt">SNS / per-team SSO</text>
+  <text x="946" y="370" text-anchor="middle" class="bs">not shipped · target design</text>
 
   <path d="M812,405 L832,405 L832,175 L852,175" class="ep" marker-end="url(#ap)"/>
-  <path d="M812,405 L838,405 L838,237 L852,237" class="ep" marker-end="url(#ap)"/>
-  <path d="M812,405 L844,405 L844,317 L852,317" class="dp" marker-end="url(#ag)"/>
-  <path d="M812,405 L848,405 L848,379 L852,379" class="dp" marker-end="url(#ag)"/>
+  <path d="M812,405 L838,405 L838,237 L852,237" class="dp" marker-end="url(#ag)"/>
+  <path d="M812,405 L844,405 L844,299 L852,299" class="dp" marker-end="url(#ag)"/>
 
-  <!-- backstop note -->
-  <text x="30" y="560" class="bs">↺ L2 reconciliation (AWS Config / Tagging API) backstops missed events &amp; resolves became-public signals · L3 Certificate-Transparency + DNS enum for non-AWS DNS.</text>
+  <text x="30" y="580" class="note">Local demo: make stack (LocalStack + workers, no NACL). K8s Job stub: infra/k8s-scan-job.yaml (reference only).</text>
+  <text x="30" y="598" class="note">L2 Config reconciliation · L3 CT/DNS enum — designed backstops, not built.</text>
 </svg>

@@ -16,16 +16,16 @@
                   └──────────────────────────────────────────────────┼─────────┘
                                                                        │
                   ┌────────────────────────────────────────────────── ▼ ────────┐
-                  │              DATA PLANE (ephemeral, isolated)                 │
-                  │   one short-lived worker per asset (K8s Job/Fargate/Lambda)  │
+                  │              DATA PLANE (ECS Fargate worker pool)             │
+                  │   always-on workers poll SQS · isolated subnet + NACL         │
                   │                                                              │
                   │   Enrichment ─▶ Security checks ─▶ LLM review ─▶ Report      │
                   └──────────────────────────────────┬───────────────────────────┘
                                                       │
                        ┌──────────────────────────────┼───────────────────────┐
                        ▼                               ▼                        ▼
-                 Critical/High                   S3 report store          Ticket / owner
-                 → SNS pager/Slack               (audit, dashboards)      (routed by tags)
+                 Slack alerts                      S3 report store
+                 (shipped)                    (private · 90d lifecycle)
 ```
 
 ```mermaid
@@ -40,15 +40,15 @@ flowchart LR
   R & L & E & G --> CT
   EB --> D[Discovery Lambda<br/>event → Asset]
   D --> Q[(SQS queue<br/>dedup · DLQ)]
-  Q --> W{{Ephemeral scanner<br/>K8s Job / Fargate / Lambda}}
-  subgraph W[Ephemeral, isolated scan]
+  Q --> W{{ECS Fargate workers<br/>always-on · NACL isolated}}
+  subgraph W[Scan pipeline]
     EN[Enrichment<br/>DNS·HTTP·TLS·ports·WAF] --> CH[Security checks<br/>rule registry]
     CH --> LL[LLM review<br/>Claude Opus 4.8]
     LL --> RP[Report<br/>JSON + Markdown]
   end
-  RP -->|CRITICAL/HIGH| PG[SNS → pager/Slack]
+  RP -->|alerts| SL[Slack]
   RP --> S3[(S3 report store)]
-  RP --> TK[Ticket / owner routing]
+  RP --> DS[Dashboard sync λ]
   RC[Nightly reconciliation<br/>Config / Tagging API] -.backstop.-> Q
 ```
 
