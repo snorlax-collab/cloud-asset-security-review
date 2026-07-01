@@ -67,3 +67,7 @@ stack-down: ## Stop the stack and remove its volumes
 .PHONY: clean
 clean: ## Remove venv, reports, and caches
 	rm -rf $(VENV) reports .pytest_cache **/__pycache__ src/**/__pycache__ *.egg-info src/*.egg-info
+
+.PHONY: sample-pdf
+sample-pdf: setup ## Regenerate docs/sample-report.pdf from docs/sample-reports/
+	$(BIN)/python scripts/build_sample_pdfs.py

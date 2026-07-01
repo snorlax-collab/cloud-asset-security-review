@@ -1,0 +1,65 @@
+{
+  "asset": {
+    "asset_type": "s3_bucket",
+    "target": "acme-analytics-exports.s3.amazonaws.com",
+    "identifier": "arn:aws:s3:::acme-analytics-exports",
+    "account_id": "111122223333",
+    "region": "us-east-1",
+    "source_event": "PutBucketAcl",
+    "discovered_at": 1782886901.283468,
+    "tags": {},
+    "metadata": {
+      "bucket": "acme-analytics-exports",
+      "exposure_event": "PutBucketAcl",
+      "public_acl_grant": true,
+      "public_policy": false,
+      "created_by": "arn:aws:sts::111122223333:assumed-role/analytics-team/etl-runner"
+    }
+  },
+  "enrichment": {
+    "resolved_ips": [],
+    "cname_chain": [],
+    "reachable": false,
+    "http": {},
+    "tls": {},
+    "open_ports": [],
+    "waf_cdn": {},
+    "technologies": [],
+    "metadata": {
+      "s3": {
+        "bucket": "acme-analytics-exports",
+        "method": "http",
+        "http_error": "<urlopen error Tunnel connection failed: 403 Forbidden>",
+        "public_list": false
+      }
+    },
+    "errors": []
+  },
+  "findings": [
+    {
+      "check_id": "S3-event-public-grant",
+      "title": "Bucket made public by the triggering event (ACL grant): acme-analytics-exports",
+      "severity": "HIGH",
+      "description": "The PutBucketAcl call granted public access; verify and revert if unintended.",
+      "evidence": "event=PutBucketAcl",
+      "remediation": "Revert the public grant and enable Block Public Access.",
+      "confidence": "HIGH",
+      "references": []
+    }
+  ],
+  "review": {
+    "risk_level": "HIGH",
+    "summary": "1 issue(s) found on acme-analytics-exports.s3.amazonaws.com (s3_bucket, owner: unknown). Highest severity: HIGH \u2014 Bucket made public by the triggering event (ACL grant): acme-analytics-exports.",
+    "key_findings": [
+      "[HIGH/HIGH conf] Bucket made public by the triggering event (ACL grant): acme-analytics-exports"
+    ],
+    "potential_impact": "The PutBucketAcl call granted public access; verify and revert if unintended.",
+    "recommended_actions": [
+      "Revert the public grant and enable Block Public Access."
+    ],
+    "owner_routing": "Route to 'unknown' (created by arn:aws:sts::111122223333:assumed-role/analytics-team/etl-runner)",
+    "model": "heuristic-fallback",
+    "used_fallback": true
+  },
+  "generated_at": 1782886910.9966888
+}

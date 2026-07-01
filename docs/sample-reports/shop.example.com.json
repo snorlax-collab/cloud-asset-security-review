@@ -1,0 +1,224 @@
+{
+  "asset": {
+    "asset_type": "dns_record",
+    "target": "shop.example.com",
+    "identifier": "shop.example.com",
+    "account_id": "111122223333",
+    "region": "us-east-1",
+    "source_event": "ChangeResourceRecordSets",
+    "discovered_at": 1782886901.2827048,
+    "tags": {},
+    "metadata": {
+      "record_type": "A",
+      "is_alias": false,
+      "created_by": "arn:aws:sts::111122223333:assumed-role/web-team/ci-runner"
+    }
+  },
+  "enrichment": {
+    "resolved_ips": [],
+    "cname_chain": [],
+    "reachable": false,
+    "http": {
+      "scheme": "http",
+      "errors": [
+        "https: <urlopen error Tunnel connection failed: 403 Forbidden>"
+      ],
+      "url": "http://shop.example.com/",
+      "status": 403,
+      "headers": {
+        "content-type": "text/plain",
+        "content-length": "93",
+        "date": "Wed, 01 Jul 2026 06:21:41 GMT"
+      },
+      "server": null,
+      "allowed_methods": [
+        "TRACE",
+        "DELETE",
+        "PUT"
+      ],
+      "soft_404": false,
+      "sensitive_paths": [
+        {
+          "path": "/swagger-ui.html",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/swagger/index.html",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/openapi.json",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/v2/api-docs",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/v3/api-docs",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/api-docs",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/.git/config",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/.env",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/actuator",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/actuator/env",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/admin",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/admin/login",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/phpmyadmin/",
+          "status": 403,
+          "note": "protected"
+        },
+        {
+          "path": "/.well-known/security.txt",
+          "status": 403,
+          "note": "protected"
+        }
+      ]
+    },
+    "tls": {
+      "error": "[Errno 8] nodename nor servname provided, or not known"
+    },
+    "open_ports": [],
+    "waf_cdn": {
+      "detected": [],
+      "present": false
+    },
+    "technologies": [],
+    "metadata": {},
+    "errors": []
+  },
+  "findings": [
+    {
+      "check_id": "TLS-missing",
+      "title": "Service served over plaintext HTTP only",
+      "severity": "HIGH",
+      "description": "Traffic (including credentials/session tokens) is transmitted unencrypted.",
+      "evidence": "http reachable, https failed: [Errno 8] nodename nor servname provided, or not known",
+      "remediation": "Terminate TLS (ACM on the ALB) and redirect HTTP->HTTPS.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "HTTP-methods",
+      "title": "Dangerous HTTP methods enabled: TRACE, DELETE, PUT",
+      "severity": "HIGH",
+      "description": "Write/diagnostic verbs are enabled; PUT/DELETE may allow content tampering, TRACE can enable Cross-Site Tracing.",
+      "evidence": "Allowed: TRACE, DELETE, PUT",
+      "remediation": "Disable unused methods at the application/proxy layer.",
+      "confidence": "MEDIUM",
+      "references": []
+    },
+    {
+      "check_id": "HDR-strict-transport-security",
+      "title": "HSTS not set",
+      "severity": "MEDIUM",
+      "description": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
+      "evidence": "Response from shop.example.com",
+      "remediation": "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-content-security-policy",
+      "title": "Content-Security-Policy not set",
+      "severity": "LOW",
+      "description": "No CSP increases the blast radius of any XSS on the asset.",
+      "evidence": "Response from shop.example.com",
+      "remediation": "Define a restrictive CSP appropriate to the app.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-x-content-type-options",
+      "title": "X-Content-Type-Options not set",
+      "severity": "LOW",
+      "description": "MIME sniffing can turn benign uploads into script execution.",
+      "evidence": "Response from shop.example.com",
+      "remediation": "Add `X-Content-Type-Options: nosniff`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-x-frame-options",
+      "title": "Clickjacking protection missing",
+      "severity": "LOW",
+      "description": "Neither X-Frame-Options nor a CSP frame-ancestors directive is present.",
+      "evidence": "Response from shop.example.com",
+      "remediation": "Add `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "NET-no-waf",
+      "title": "No WAF/CDN detected in front of public web asset",
+      "severity": "LOW",
+      "description": "No edge protection signature was observed; the origin may be directly exposed to L7 attacks and volumetric traffic.",
+      "evidence": "No CloudFront/Cloudflare/AWS WAF headers seen.",
+      "remediation": "Front the asset with AWS WAF + CloudFront or equivalent.",
+      "confidence": "LOW",
+      "references": []
+    }
+  ],
+  "review": {
+    "risk_level": "HIGH",
+    "summary": "7 issue(s) found on shop.example.com (dns_record, owner: unknown). Highest severity: HIGH \u2014 Service served over plaintext HTTP only.",
+    "key_findings": [
+      "[HIGH/MEDIUM conf] Service served over plaintext HTTP only",
+      "[HIGH/MEDIUM conf] Dangerous HTTP methods enabled: TRACE, DELETE, PUT",
+      "[MEDIUM/HIGH conf] HSTS not set",
+      "[LOW/HIGH conf] Content-Security-Policy not set",
+      "[LOW/HIGH conf] X-Content-Type-Options not set",
+      "[LOW/HIGH conf] Clickjacking protection missing",
+      "[LOW/LOW conf] No WAF/CDN detected in front of public web asset"
+    ],
+    "potential_impact": "Traffic (including credentials/session tokens) is transmitted unencrypted.",
+    "recommended_actions": [
+      "Terminate TLS (ACM on the ALB) and redirect HTTP->HTTPS.",
+      "Disable unused methods at the application/proxy layer.",
+      "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
+      "Define a restrictive CSP appropriate to the app.",
+      "Add `X-Content-Type-Options: nosniff`.",
+      "Add `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`.",
+      "Front the asset with AWS WAF + CloudFront or equivalent."
+    ],
+    "owner_routing": "Route to 'unknown' (created by arn:aws:sts::111122223333:assumed-role/web-team/ci-runner)",
+    "model": "heuristic-fallback",
+    "used_fallback": true
+  },
+  "generated_at": 1782886901.631587
+}

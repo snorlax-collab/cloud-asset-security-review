@@ -1,0 +1,134 @@
+{
+  "asset": {
+    "asset_type": "dns_record",
+    "target": "example.com",
+    "identifier": "example.com",
+    "account_id": "",
+    "region": "",
+    "source_event": "manual-scan",
+    "discovered_at": 1782887030.9128928,
+    "tags": {},
+    "metadata": {}
+  },
+  "enrichment": {
+    "resolved_ips": [
+      "104.20.23.154",
+      "172.66.147.243"
+    ],
+    "cname_chain": [],
+    "reachable": true,
+    "http": {
+      "scheme": "https",
+      "url": "https://example.com/",
+      "status": 200,
+      "headers": {
+        "date": "Wed, 01 Jul 2026 06:23:51 GMT",
+        "content-type": "text/html",
+        "transfer-encoding": "chunked",
+        "connection": "close",
+        "server": "cloudflare",
+        "last-modified": "Tue, 30 Jun 2026 20:56:01 GMT",
+        "allow": "GET, HEAD",
+        "accept-ranges": "bytes",
+        "age": "3515",
+        "cf-cache-status": "HIT",
+        "cf-ray": "a1435308587f29b7-HYD"
+      },
+      "server": "cloudflare",
+      "title": "Example Domain",
+      "final_url": "https://example.com/",
+      "allowed_methods": [],
+      "soft_404": false,
+      "sensitive_paths": []
+    },
+    "tls": {
+      "negotiated_version": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384",
+      "subject_cn": "example.com",
+      "issuer_cn": "Cloudflare TLS Issuing ECC CA 3",
+      "issuer_org": "SSL Corporation",
+      "san": [
+        "example.com",
+        "*.example.com"
+      ],
+      "not_after": "2026-08-29T21:41:26+00:00",
+      "days_until_expiry": 59,
+      "self_signed": false,
+      "hostname_valid": true,
+      "weak_protocols": []
+    },
+    "open_ports": [],
+    "waf_cdn": {
+      "detected": [
+        "Cloudflare (CDN/WAF)"
+      ],
+      "present": true
+    },
+    "technologies": [],
+    "metadata": {},
+    "errors": []
+  },
+  "findings": [
+    {
+      "check_id": "HDR-strict-transport-security",
+      "title": "HSTS not set",
+      "severity": "MEDIUM",
+      "description": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
+      "evidence": "Response from https://example.com/",
+      "remediation": "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-content-security-policy",
+      "title": "Content-Security-Policy not set",
+      "severity": "LOW",
+      "description": "No CSP increases the blast radius of any XSS on the asset.",
+      "evidence": "Response from https://example.com/",
+      "remediation": "Define a restrictive CSP appropriate to the app.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-x-content-type-options",
+      "title": "X-Content-Type-Options not set",
+      "severity": "LOW",
+      "description": "MIME sniffing can turn benign uploads into script execution.",
+      "evidence": "Response from https://example.com/",
+      "remediation": "Add `X-Content-Type-Options: nosniff`.",
+      "confidence": "HIGH",
+      "references": []
+    },
+    {
+      "check_id": "HDR-x-frame-options",
+      "title": "Clickjacking protection missing",
+      "severity": "LOW",
+      "description": "Neither X-Frame-Options nor a CSP frame-ancestors directive is present.",
+      "evidence": "Response from https://example.com/",
+      "remediation": "Add `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`.",
+      "confidence": "HIGH",
+      "references": []
+    }
+  ],
+  "review": {
+    "risk_level": "MEDIUM",
+    "summary": "4 issue(s) found on example.com (dns_record, owner: unknown). Highest severity: MEDIUM \u2014 HSTS not set.",
+    "key_findings": [
+      "[MEDIUM/HIGH conf] HSTS not set",
+      "[LOW/HIGH conf] Content-Security-Policy not set",
+      "[LOW/HIGH conf] X-Content-Type-Options not set",
+      "[LOW/HIGH conf] Clickjacking protection missing"
+    ],
+    "potential_impact": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
+    "recommended_actions": [
+      "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
+      "Define a restrictive CSP appropriate to the app.",
+      "Add `X-Content-Type-Options: nosniff`.",
+      "Add `X-Frame-Options: DENY` or CSP `frame-ancestors 'none'`."
+    ],
+    "owner_routing": "Route to 'unknown'",
+    "model": "heuristic-fallback",
+    "used_fallback": true
+  },
+  "generated_at": 1782887035.592216
+}

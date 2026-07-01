@@ -79,7 +79,7 @@ A decorator-based **rule registry** (`registry.py`) of deterministic, severity-t
 Claude Opus 4.8 receives only the deterministic findings + enrichment facts and returns a strict JSON object (risk level, summary, key findings, impact, remediation, owner routing) via structured outputs. It is explicitly instructed not to invent findings — keeping the output auditable and hallucination-resistant. A deterministic heuristic produces the same shape when no API key is present.
 
 ### 6. Report (`report/`)
-JSON for machines (routing, dashboards, S3) and Markdown for humans (the [sample](docs/sample-report.md)).
+JSON for machines (routing, dashboards, S3) and a dashboard-style [sample PDF](docs/sample-report.pdf) for humans.
 
 ### 7. Orchestration & ephemeral execution (`orchestrator/`, `infra/`)
 Step Functions (or EventBridge Pipes) launch **one ephemeral, isolated execution per asset** and route results by severity. The same queue-based-worker model is **runnable locally** against LocalStack via [`docker-compose.yml`](docker-compose.yml) (`make stack`): discovery → real SQS → a pool of ephemeral workers → dashboard. See [`DESIGN.md`](DESIGN.md) for the isolation/cleanup/cost rationale and the scaling model, and [`THREAT_MODEL.md`](THREAT_MODEL.md) for the scanner-as-attack-surface analysis.
