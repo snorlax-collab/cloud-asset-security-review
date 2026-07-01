@@ -39,6 +39,9 @@ def write_report(rpt: Report, out_dir: Path) -> None:
     stem = _safe_stem(rpt.asset.target)
     (out_dir / f"{stem}.json").write_text(report_renderer.to_json(rpt))
     (out_dir / f"{stem}.md").write_text(report_renderer.to_markdown(rpt))
+    from ..storage.s3 import upload_report
+
+    upload_report(rpt)
 
 
 def process_once(queue: Queue, *, on_report: Callable[[Report], None]) -> Optional[Report]:

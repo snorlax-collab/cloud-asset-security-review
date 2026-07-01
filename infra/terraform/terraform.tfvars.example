@@ -1,0 +1,9 @@
+aws_region  = "ap-south-1"
+project_name = "asset-review"
+
+# Set after: make deploy-push-image AWS_REGION=ap-south-1
+# scanner_image = "124687819961.dkr.ecr.ap-south-1.amazonaws.com/asset-review:latest"
+
+anthropic_api_key   = ""   # sk-ant-...
+slack_webhook_url   = ""   # https://hooks.slack.com/services/...
+worker_desired_count = 2

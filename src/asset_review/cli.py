@@ -275,6 +275,19 @@ def cmd_notify_test(args: argparse.Namespace) -> int:
     return 0 if (new_ok or finding_ok) else 1
 
 
+def cmd_dashboard_sync(args: argparse.Namespace) -> int:
+    """Rebuild index.html from report JSON in S3 and upload it."""
+    from .storage.s3 import sync_dashboard
+
+    bucket = args.bucket or __import__("os").environ.get("REPORTS_S3_BUCKET", "").strip()
+    if not bucket:
+        print("Set REPORTS_S3_BUCKET or pass --bucket", file=sys.stderr)
+        return 2
+    key = sync_dashboard(bucket=bucket, prefix=args.prefix or None)
+    print(f"✓ dashboard synced to s3://{bucket}/{key}")
+    return 0
+
+
 def cmd_info(_: argparse.Namespace) -> int:
     print("Supported discovery events:")
     for ev in discovery.supported_events():
@@ -353,6 +366,11 @@ def build_parser() -> argparse.ArgumentParser:
     nt = sub.add_parser("notify-test", help="send a sample finding to Slack to verify the webhook")
     nt.add_argument("--webhook", help="Slack webhook URL (else uses SLACK_WEBHOOK_URL)")
     nt.set_defaults(func=cmd_notify_test)
+
+    ds = sub.add_parser("dashboard-sync", help="rebuild index.html from S3 report JSON")
+    ds.add_argument("--bucket", help="S3 bucket (else REPORTS_S3_BUCKET)")
+    ds.add_argument("--prefix", default="", help="reports prefix (else REPORTS_S3_PREFIX, default reports)")
+    ds.set_defaults(func=cmd_dashboard_sync)
 
     i = sub.add_parser("info", help="list supported events and checks")
     i.set_defaults(func=cmd_info)

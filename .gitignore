@@ -5,6 +5,7 @@ venv/
 *.egg-info/
 .pytest_cache/
 reports/
+dist/
 .DS_Store
 .env
 .env.*
