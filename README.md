@@ -10,18 +10,6 @@ Runs locally with **no AWS account and no API key**. Sample CloudTrail events dr
 
 **More detail:** [Production setup](docs/PRODUCTION_SETUP.md) · [Architecture](docs/ARCHITECTURE.md) · [Design](docs/DESIGN.md) · [Threat model](docs/THREAT_MODEL.md) · [Security ops](docs/SECURITY_OPERATIONS.md) · [Sample report (PDF)](docs/sample-report.pdf)
 
-## Security posture
-
-Security is a first-class design constraint — the scanner probes **untrusted, attacker-controlled targets**, so the platform is built defensively:
-
-- **Evidence before LLM narrative** — deterministic checks with proof; the model does not invent CVEs
-- **Production isolation (ECS Fargate)** — SSRF guards in code, subnet NACL blocks RFC1918/IMDS egress, no inbound to workers, non-root read-only containers, least-privilege task IAM
-- **Sensitive outputs protected** — private encrypted S3 bucket, 90-day report lifecycle, IAM-only read (no public dashboard)
-- **Secrets outside Terraform state** — API keys/webhooks via Secrets Manager; manual rotation runbook
-- **Documented gaps** — no per-team SSO yet, single-account POC, K8s stub is reference-only ([threat model](docs/THREAT_MODEL.md), [security ops](docs/SECURITY_OPERATIONS.md))
-
-**Report a vulnerability:** [SECURITY.md](SECURITY.md) · **Doc review policy:** [docs/DOCUMENT_GOVERNANCE.md](docs/DOCUMENT_GOVERNANCE.md)
-
 ## Architecture
 
 ![Architecture diagram](docs/architecture.svg)
