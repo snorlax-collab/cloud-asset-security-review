@@ -54,7 +54,7 @@ make test && make demo
 | Step | Command | What it does |
 |---|---|---|
 | Install | `make setup` | venv, package, copies `.env.example` → `.env` |
-| Verify | `make test` | 83 tests (no network required) |
+| Verify | `make test` | 85 tests (no network required) |
 | Try it | `make demo` | Replays sample CloudTrail events → `reports/` |
 | Dashboard | `make serve` | Serves `reports/index.html` at http://localhost:8000 |
 | Live scan | `make scan HOST=example.com` | Probes a real host (optional) |
@@ -85,18 +85,19 @@ For **always-on discovery and scanning** when new internet-facing assets are cre
 | **AWS account** with admin or scoped IAM | Creates Lambda, ECS, SQS, S3, EventBridge, Secrets Manager, ECR |
 | **CloudTrail** with management events enabled | Discovery listens on the default EventBridge bus fed by CloudTrail |
 | **Terraform ≥ 1.5** + **Docker** + **AWS CLI** | Deploy infrastructure and push the scanner image |
-| **`ANTHROPIC_API_KEY`** | Real LLM review in workers (stored in Secrets Manager) |
-| **`SLACK_WEBHOOK_URL`** (recommended) | Real-time alerts on new assets and findings |
+| **`ANTHROPIC_API_KEY`** | Real LLM review — set in `.env`, then `make set-scanner-secret` |
+| **`SLACK_WEBHOOK_URL`** (recommended) | Real-time alerts — same flow as Anthropic key |
 | **Default VPC with internet egress** | Fargate workers need outbound access to probe targets |
 
 **Deploy (4 commands):**
 
 ```bash
 cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-# Edit: aws_region, anthropic_api_key, slack_webhook_url  (see PRODUCTION_SETUP.md)
+# Edit: aws_region, worker_desired_count  (secrets go in .env → make set-scanner-secret)
 
 make deploy-init
 make deploy-apply-base AWS_REGION=ap-south-1
+make set-scanner-secret AWS_REGION=ap-south-1   # reads ANTHROPIC_API_KEY / SLACK from .env
 make deploy-push-image AWS_REGION=ap-south-1
 # Add scanner_image=... (printed by push step) to terraform.tfvars, then:
 make deploy-apply AWS_REGION=ap-south-1
@@ -150,5 +151,5 @@ Terraform modules: [`infra/terraform/`](infra/terraform/). **Setup guide:** [`do
 src/asset_review/   discovery, enrichment, checks, llm, orchestrator, report, storage
 infra/              Terraform (production) + EventBridge/K8s stubs
 docs/               diagrams + sample reports
-tests/              83 tests (no network required)
+tests/              85 tests (no network required)
 ```

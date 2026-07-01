@@ -1,3 +1,8 @@
+output "scanner_secret_name" {
+  value       = aws_secretsmanager_secret.scanner.name
+  description = "Populate with: make set-scanner-secret (reads .env — never put keys in terraform.tfvars)"
+}
+
 output "asset_queue_url" {
   value = aws_sqs_queue.asset_scan.url
 }
@@ -29,10 +34,13 @@ output "ecs_service_name" {
 output "deploy_next_steps" {
   value = <<-EOT
     1. Enable CloudTrail management events (org trail recommended).
-    2. Build and push the scanner image:
+    2. Build Lambda zip + push scanner image:
+         make deploy-build-lambda
          make deploy-push-image AWS_REGION=${var.aws_region}
-    3. Re-apply if you changed scanner_image: terraform apply
-    4. Dashboard (after first scan + sync): terraform output dashboard_s3_uri
-    5. Tail worker logs: aws logs tail /ecs/${local.name}-worker --follow
+    3. Populate secrets (NOT via Terraform — avoids secrets in tfstate):
+         make set-scanner-secret AWS_REGION=${var.aws_region}
+    4. Re-apply if you changed scanner_image: terraform apply
+    5. Dashboard (after first scan + sync): terraform output dashboard_s3_uri
+    6. Tail worker logs: aws logs tail /ecs/${local.name}-worker --follow
   EOT
 }

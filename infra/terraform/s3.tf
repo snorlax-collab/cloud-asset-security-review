@@ -33,3 +33,15 @@ resource "aws_s3_object" "dashboard_placeholder" {
   content      = "<!doctype html><html><body><h1>Asset Review</h1><p>Waiting for first scan…</p></body></html>"
   content_type = "text/html; charset=utf-8"
 }
+
+resource "aws_s3_bucket_lifecycle_configuration" "reports" {
+  count  = var.report_retention_days > 0 ? 1 : 0
+  bucket = aws_s3_bucket.reports.id
+
+  rule {
+    id     = "expire-old-reports"
+    status = "Enabled"
+    filter { prefix = "reports/" }
+    expiration { days = var.report_retention_days }
+  }
+}

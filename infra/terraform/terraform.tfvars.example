@@ -2,8 +2,11 @@ aws_region  = "ap-south-1"
 project_name = "asset-review"
 
 # Set after: make deploy-push-image AWS_REGION=ap-south-1
-# scanner_image = "124687819961.dkr.ecr.ap-south-1.amazonaws.com/asset-review:latest"
+# scanner_image = "111122223333.dkr.ecr.ap-south-1.amazonaws.com/asset-review:latest"
 
-anthropic_api_key   = ""   # sk-ant-...
-slack_webhook_url   = ""   # https://hooks.slack.com/services/...
 worker_desired_count = 2
+slack_alert_threshold = "LOW"
+report_retention_days = 90
+
+# Secrets (ANTHROPIC_API_KEY, SLACK_WEBHOOK_URL) are NOT set here — they would
+# land in terraform.tfstate. After deploy: make set-scanner-secret

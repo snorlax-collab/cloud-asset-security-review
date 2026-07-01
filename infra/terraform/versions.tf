@@ -6,11 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.0"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = ">= 2.4"
-    }
   }
+
+  # For production: copy backend.tf.example → backend.tf (S3 + SSE + DynamoDB lock).
+  # Local state is fine for a single-operator deploy; never commit *.tfstate.
 }
 
 provider "aws" {

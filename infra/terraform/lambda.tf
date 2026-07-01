@@ -10,36 +10,20 @@ resource "aws_cloudwatch_log_group" "dashboard_sync" {
   tags              = local.tags
 }
 
-resource "null_resource" "lambda_package" {
-  triggers = {
-    src = sha256(join("", [
-      for f in fileset("${path.module}/../../src/asset_review", "**/*.py") :
-      filesha256("${path.module}/../../src/asset_review/${f}")
-    ]))
-  }
-
-  provisioner "local-exec" {
-    command     = "${path.module}/../../scripts/build_lambda_zip.sh"
-    working_dir = path.module
-  }
-}
-
-data "archive_file" "lambda" {
-  depends_on  = [null_resource.lambda_package]
-  type        = "zip"
-  source_dir  = "${path.module}/../../dist/lambda"
-  output_path = "${path.module}/../../dist/lambda.zip"
+# Zip must exist before apply — run: make deploy-build-lambda  (no pip/network during terraform apply)
+locals {
+  lambda_zip = "${path.module}/../../dist/lambda.zip"
 }
 
 resource "aws_lambda_function" "discovery" {
-  function_name = "${local.name}-discovery"
-  role          = aws_iam_role.discovery.arn
-  handler       = "asset_review.discovery.lambda_handler.handler"
-  runtime       = "python3.12"
-  timeout       = 30
-  memory_size   = 256
-  filename      = data.archive_file.lambda.output_path
-  source_code_hash = data.archive_file.lambda.output_base64sha256
+  function_name    = "${local.name}-discovery"
+  role             = aws_iam_role.discovery.arn
+  handler          = "asset_review.discovery.lambda_handler.handler"
+  runtime          = "python3.12"
+  timeout          = 30
+  memory_size      = 256
+  filename         = local.lambda_zip
+  source_code_hash = filebase64sha256(local.lambda_zip)
 
   environment {
     variables = {
@@ -52,14 +36,14 @@ resource "aws_lambda_function" "discovery" {
 }
 
 resource "aws_lambda_function" "dashboard_sync" {
-  function_name = "${local.name}-dashboard-sync"
-  role          = aws_iam_role.dashboard_sync.arn
-  handler       = "asset_review.storage.lambda_handler.handler"
-  runtime       = "python3.12"
-  timeout       = 120
-  memory_size   = 512
-  filename      = data.archive_file.lambda.output_path
-  source_code_hash = data.archive_file.lambda.output_base64sha256
+  function_name    = "${local.name}-dashboard-sync"
+  role             = aws_iam_role.dashboard_sync.arn
+  handler          = "asset_review.storage.lambda_handler.handler"
+  runtime          = "python3.12"
+  timeout          = 120
+  memory_size      = 512
+  filename         = local.lambda_zip
+  source_code_hash = filebase64sha256(local.lambda_zip)
 
   environment {
     variables = {

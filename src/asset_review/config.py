@@ -10,13 +10,20 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# Stop searching at the repository root — never load a parent project's .env.
+_REPO_MARKERS = (".git", "pyproject.toml")
+
 
 def load_dotenv(start: Path | None = None) -> None:
     """Load KEY=VALUE pairs from the nearest ``.env`` into os.environ.
 
-    Walks up from ``start`` (or cwd) to the filesystem root looking for a
-    ``.env``. Existing environment variables always win, so an explicit
-    ``export`` or container env var is never overridden.
+    Walks up from ``start`` (or cwd) toward the repo root (``.git`` /
+    ``pyproject.toml``). Stops at the first repo marker without crossing into
+    parent directories — so a nested cwd never picks up an unrelated ``.env``
+    from ``~/`` or another project.
+
+    Existing environment variables always win, so an explicit ``export`` or
+    container env var is never overridden.
     """
     path = _find_dotenv(start or Path.cwd())
     if path is None:
@@ -39,4 +46,6 @@ def _find_dotenv(start: Path) -> Path | None:
         candidate = directory / ".env"
         if candidate.is_file():
             return candidate
+        if any((directory / marker).exists() for marker in _REPO_MARKERS):
+            return None
     return None

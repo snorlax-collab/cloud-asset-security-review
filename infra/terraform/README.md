@@ -20,8 +20,10 @@ Deploys continuous monitoring: **CloudTrail → EventBridge → Discovery Lambda
 
 - [ ] CloudTrail trail active (management events, not data events only)
 - [ ] `aws sts get-caller-identity` succeeds for the deploy profile
-- [ ] `terraform.tfvars` filled: `aws_region`, `anthropic_api_key`, `slack_webhook_url`
+- [ ] `terraform.tfvars` filled: `aws_region`, `scanner_image` (non-secret config only)
+- [ ] `.env` has `ANTHROPIC_API_KEY` / `SLACK_WEBHOOK_URL`; run `make set-scanner-secret` after base deploy
 - [ ] Docker running (for `make deploy-push-image`)
+- [ ] (Recommended) Remote Terraform backend configured (`backend.tf.example`)
 - [ ] (Optional) Second stack in `us-east-1` if you need Route53/CloudFront discovery
 
 **Regional note:** CloudTrail events for resources in `ap-south-1` appear on the EventBridge bus in that region. Route53/CloudFront global events land in `us-east-1` — deploy a second stack there if you need them.
@@ -31,7 +33,7 @@ Deploys continuous monitoring: **CloudTrail → EventBridge → Discovery Lambda
 ```bash
 # 1. Configure
 cp infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
-# Edit: aws_region, anthropic_api_key, slack_webhook_url
+# Edit: aws_region, worker_desired_count (NOT secrets — use make set-scanner-secret)
 
 # 2. Init + create base infra (ECR, SQS, S3, Lambda, EventBridge)
 cd infra/terraform
@@ -57,7 +59,8 @@ Or use the Makefile shortcuts from the repo root:
 
 ```bash
 make deploy-init
-make deploy-apply-base AWS_REGION=ap-south-1    # ECR + control plane
+make deploy-apply-base AWS_REGION=ap-south-1    # ECR + control plane (builds lambda zip first)
+make set-scanner-secret AWS_REGION=ap-south-1   # .env → Secrets Manager
 make deploy-push-image AWS_REGION=ap-south-1
 # add scanner_image=... to infra/terraform/terraform.tfvars
 make deploy-apply AWS_REGION=ap-south-1         # ECS workers
@@ -102,7 +105,7 @@ open index.html
 | `REPORTS_S3_BUCKET` | Terraform |
 | `ANTHROPIC_API_KEY` | Secrets Manager |
 | `SLACK_WEBHOOK_URL` | Secrets Manager |
-| `SLACK_ALERT_THRESHOLD` | Secrets Manager (default `LOW`) |
+| `SLACK_ALERT_THRESHOLD` | ECS task environment (Terraform variable, non-secret) |
 
 ## Tear down
 

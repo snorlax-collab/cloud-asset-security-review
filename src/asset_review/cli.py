@@ -277,9 +277,11 @@ def cmd_notify_test(args: argparse.Namespace) -> int:
 
 def cmd_dashboard_sync(args: argparse.Namespace) -> int:
     """Rebuild index.html from report JSON in S3 and upload it."""
+    import os
+
     from .storage.s3 import sync_dashboard
 
-    bucket = args.bucket or __import__("os").environ.get("REPORTS_S3_BUCKET", "").strip()
+    bucket = args.bucket or os.environ.get("REPORTS_S3_BUCKET", "").strip()
     if not bucket:
         print("Set REPORTS_S3_BUCKET or pass --bucket", file=sys.stderr)
         return 2

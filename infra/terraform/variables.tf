@@ -20,23 +20,16 @@ variable "scanner_image" {
   type        = string
 }
 
-variable "anthropic_api_key" {
-  description = "Anthropic API key for LLM review (stored in Secrets Manager)."
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "slack_webhook_url" {
-  description = "Slack incoming webhook URL (optional)."
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "slack_alert_threshold" {
-  type    = string
-  default = "LOW"
+  description = "Min severity for Slack alerts (non-secret; set on ECS task env)."
+  type        = string
+  default     = "LOW"
+}
+
+variable "report_retention_days" {
+  description = "Expire report objects under reports/ after N days (0 = keep forever)."
+  type        = number
+  default     = 90
 }
 
 variable "dashboard_sync_rate" {

@@ -1,0 +1,25 @@
+name: test
+
+on:
+  push:
+    branches: [main, sample-report-pdfs]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -e ".[dev,llm]"
+
+      - name: Build Lambda zip (packaging smoke test)
+        run: bash scripts/build_lambda_zip.sh
+
+      - name: Run tests
+        run: pytest -q

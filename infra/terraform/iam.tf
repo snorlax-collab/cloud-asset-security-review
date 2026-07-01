@@ -1,16 +1,11 @@
 resource "aws_secretsmanager_secret" "scanner" {
-  name = "${local.name}/scanner"
-  tags = local.tags
+  name        = "${local.name}/scanner"
+  description = "Scanner credentials — populate outside Terraform (see scripts/set_scanner_secret.sh)"
+  tags        = local.tags
 }
 
-resource "aws_secretsmanager_secret_version" "scanner" {
-  secret_id = aws_secretsmanager_secret.scanner.id
-  secret_string = jsonencode({
-    ANTHROPIC_API_KEY     = var.anthropic_api_key
-    SLACK_WEBHOOK_URL     = var.slack_webhook_url
-    SLACK_ALERT_THRESHOLD = var.slack_alert_threshold
-  })
-}
+# Secret *values* are NOT managed here — avoids plaintext in terraform.tfstate.
+# After deploy: make set-scanner-secret  (reads ANTHROPIC_API_KEY / SLACK_WEBHOOK_URL from .env)
 
 data "aws_iam_policy_document" "discovery_assume" {
   statement {

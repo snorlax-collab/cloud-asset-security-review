@@ -106,8 +106,12 @@ ECR_REPO := $(ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/asset-review
 deploy-init: ## Terraform init (infra/terraform)
 	cd $(TF_DIR) && terraform init
 
+.PHONY: deploy-build-lambda
+deploy-build-lambda: ## Build dist/lambda.zip for Terraform (run before deploy-apply-base)
+	bash scripts/build_lambda_zip.sh
+
 .PHONY: deploy-apply-base
-deploy-apply-base: deploy-init ## Deploy control plane (no ECS workers yet)
+deploy-apply-base: deploy-init deploy-build-lambda ## Deploy control plane (no ECS workers yet)
 	cd $(TF_DIR) && terraform apply \
 	  -target=aws_ecr_repository.scanner \
 	  -target=aws_sqs_queue.asset_scan \
@@ -117,9 +121,9 @@ deploy-apply-base: deploy-init ## Deploy control plane (no ECS workers yet)
 	  -target=aws_s3_bucket_public_access_block.reports \
 	  -target=aws_s3_bucket_server_side_encryption_configuration.reports \
 	  -target=aws_s3_bucket_versioning.reports \
+	  -target=aws_s3_bucket_lifecycle_configuration.reports \
 	  -target=aws_s3_object.dashboard_placeholder \
 	  -target=aws_secretsmanager_secret.scanner \
-	  -target=aws_secretsmanager_secret_version.scanner \
 	  -target=aws_iam_role.discovery \
 	  -target=aws_iam_role_policy.discovery \
 	  -target=aws_iam_role.dashboard_sync \
@@ -130,6 +134,10 @@ deploy-apply-base: deploy-init ## Deploy control plane (no ECS workers yet)
 	  -target=aws_cloudwatch_event_target.tier1_discovery \
 	  -target=aws_cloudwatch_event_rule.dashboard_sync \
 	  -target=aws_cloudwatch_event_target.dashboard_sync
+
+.PHONY: set-scanner-secret
+set-scanner-secret: ## Push .env secrets to AWS Secrets Manager (not Terraform)
+	bash scripts/set_scanner_secret.sh
 
 .PHONY: deploy-push-image
 deploy-push-image: ## Build scanner image and push to ECR (run deploy-apply-base first)

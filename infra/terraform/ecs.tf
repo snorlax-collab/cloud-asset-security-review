@@ -59,11 +59,11 @@ resource "aws_ecs_task_definition" "worker" {
       { name = "REPORTS_S3_BUCKET", value = aws_s3_bucket.reports.id },
       { name = "REPORTS_S3_PREFIX", value = "reports" },
       { name = "SLACK_NOTIFY_NEW_ASSETS", value = "true" },
+      { name = "SLACK_ALERT_THRESHOLD", value = var.slack_alert_threshold },
     ]
     secrets = [
       { name = "ANTHROPIC_API_KEY", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:ANTHROPIC_API_KEY::" },
       { name = "SLACK_WEBHOOK_URL", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:SLACK_WEBHOOK_URL::" },
-      { name = "SLACK_ALERT_THRESHOLD", valueFrom = "${aws_secretsmanager_secret.scanner.arn}:SLACK_ALERT_THRESHOLD::" },
     ]
     logConfiguration = {
       logDriver = "awslogs"

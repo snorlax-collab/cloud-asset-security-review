@@ -54,10 +54,16 @@ Install these on the machine you deploy from:
 
 | Secret | Required? | Where it goes |
 |---|---|---|
-| **Anthropic API key** | Strongly recommended | `terraform.tfvars` → Secrets Manager |
-| **Slack incoming webhook URL** | Recommended | `terraform.tfvars` → Secrets Manager |
+| **Anthropic API key** | Strongly recommended | Repo `.env` → `make set-scanner-secret` → Secrets Manager |
+| **Slack incoming webhook URL** | Recommended | Same as above |
+
+**Do not put API keys or webhook URLs in `terraform.tfvars`.** Terraform state would retain the plaintext. The stack creates an empty Secrets Manager secret; you populate it after deploy with `make set-scanner-secret` (reads from your local `.env`).
 
 Without an Anthropic key, workers fall back to a deterministic heuristic (works, but not the full LLM review).
+
+### Terraform remote state (recommended for teams/CI)
+
+Local `terraform.tfstate` is fine for a solo deploy. For shared or CI runs, copy [`infra/terraform/backend.tf.example`](../infra/terraform/backend.tf.example) to `backend.tf` (S3 + SSE + DynamoDB lock) before `terraform init -reconfigure`.
 
 ---
 
@@ -120,15 +126,16 @@ Edit `infra/terraform/terraform.tfvars`:
 ```hcl
 aws_region  = "ap-south-1"          # your home region
 project_name = "asset-review"
-
-anthropic_api_key    = "sk-ant-..."  # Anthropic API key
-slack_webhook_url    = "https://hooks.slack.com/services/..."
 worker_desired_count = 2             # parallel scanner tasks
+slack_alert_threshold = "LOW"
+report_retention_days = 90           # S3 lifecycle; 0 = keep forever
 
 # Leave scanner_image unset for now — filled in after Step 5
 ```
 
-> **Do not commit `terraform.tfvars`** — it contains secrets. It is gitignored by convention; keep it local only.
+Put `ANTHROPIC_API_KEY` and `SLACK_WEBHOOK_URL` in the repo **`.env`** (same file used for local dev), not in `terraform.tfvars`.
+
+> **`terraform.tfvars` is gitignored** — keep it local. It should contain only non-secret config.
 
 ---
 
@@ -147,10 +154,10 @@ make deploy-apply-base AWS_REGION=$AWS_REGION AWS_PROFILE=$AWS_PROFILE
 This creates:
 - ECR repository (for the scanner Docker image)
 - SQS queues (work queue + DLQs)
-- S3 reports bucket
-- Discovery + dashboard-sync Lambdas
+- S3 reports bucket (with lifecycle expiration for old reports)
+- Discovery + dashboard-sync Lambdas (from pre-built `dist/lambda.zip`)
 - EventBridge rules
-- Secrets Manager secret (API key + Slack URL)
+- Empty Secrets Manager secret shell (populate in Step 5b)
 - IAM roles
 
 Type `yes` when Terraform prompts.
@@ -166,10 +173,22 @@ make deploy-push-image AWS_REGION=$AWS_REGION AWS_PROFILE=$AWS_PROFILE
 The command prints a line like:
 
 ```
-Add to infra/terraform/terraform.tfvars: scanner_image = "123456789012.dkr.ecr.ap-south-1.amazonaws.com/asset-review:latest"
+Add to infra/terraform/terraform.tfvars: scanner_image = "111122223333.dkr.ecr.ap-south-1.amazonaws.com/asset-review:latest"
 ```
 
 Add that line to `terraform.tfvars`.
+
+---
+
+## Step 5b — Populate secrets (outside Terraform)
+
+Ensure `.env` has your keys, then:
+
+```bash
+make set-scanner-secret AWS_REGION=$AWS_REGION AWS_PROFILE=$AWS_PROFILE
+```
+
+This calls `aws secretsmanager put-secret-value` directly — nothing sensitive touches `terraform.tfstate`.
 
 ---
 
@@ -266,7 +285,7 @@ See [`.env.example`](../.env.example). Local `make scan` / `make poc` read from 
 | Discovery fires but no scans | SQS queue depth: `aws sqs get-queue-attributes --queue-url URL --attribute-names ApproximateNumberOfMessages` |
 | Workers not starting | ECS service events in console; `scanner_image` set in tfvars? Image pushed to ECR? |
 | No Slack alerts | Secret has valid webhook URL? Check worker logs for Slack errors |
-| Empty dashboard | Wait 5 min for sync Lambda; confirm JSON files exist under `reports/` prefix in S3 |
+| Empty dashboard / slow sync | Dashboard sync re-reads all report JSON every 5 min — fine at small scale; at high volume consider incremental sync or longer interval |
 | Route53/CloudFront missed | Deploy second stack in `us-east-1` |
 
 ---
