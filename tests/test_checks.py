@@ -21,6 +21,8 @@ def test_missing_security_headers_flagged():
     findings = checks.run_all(_asset(), e)
     assert "HDR-strict-transport-security" in _ids(findings)
     assert "HDR-content-security-policy" in _ids(findings)
+    hsts = next(f for f in findings if f.check_id == "HDR-strict-transport-security")
+    assert hsts.severity == Severity.LOW
 
 
 def test_headers_present_no_findings():

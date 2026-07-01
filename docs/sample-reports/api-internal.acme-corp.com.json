@@ -152,7 +152,7 @@
     {
       "check_id": "HDR-strict-transport-security",
       "title": "HSTS not set",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "description": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
       "evidence": "Response from https://api-internal.acme-corp.com/",
       "remediation": "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
@@ -260,8 +260,8 @@
       "[HIGH/HIGH conf] Deprecated TLS version accepted",
       "[HIGH/MEDIUM conf] Admin/management surface exposed: /actuator/env",
       "[HIGH/MEDIUM conf] Dangerous HTTP methods enabled: PUT, DELETE, TRACE",
-      "[MEDIUM/HIGH conf] HSTS not set",
-      "[MEDIUM/HIGH conf] TLS certificate expiring soon"
+      "[MEDIUM/HIGH conf] TLS certificate expiring soon",
+      "[MEDIUM/HIGH conf] API documentation exposed: /v3/api-docs"
     ],
     "potential_impact": "Source-control metadata or environment file is publicly readable, frequently leaking credentials and internal structure.",
     "recommended_actions": [
@@ -270,9 +270,9 @@
       "Disable TLS 1.0/1.1; require TLS 1.2+.",
       "Restrict to VPN/SSO/allow-list; never expose admin panels publicly.",
       "Disable unused methods at the application/proxy layer.",
-      "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
       "Renew now; ensure automated rotation is in place.",
-      "Disable docs in production or require authentication."
+      "Disable docs in production or require authentication.",
+      "Confirm this must be public; otherwise move behind VPN/private DNS."
     ],
     "owner_routing": "Route to 'payments-team' (created by arn:aws:sts::111122223333:assumed-role/payments-deploy/ci-runner)",
     "model": "heuristic-fallback",

@@ -72,7 +72,7 @@
     {
       "check_id": "HDR-strict-transport-security",
       "title": "HSTS not set",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "description": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
       "evidence": "Response from https://example.com/",
       "remediation": "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
@@ -111,10 +111,10 @@
     }
   ],
   "review": {
-    "risk_level": "MEDIUM",
-    "summary": "4 issue(s) found on example.com (dns_record, owner: unknown). Highest severity: MEDIUM \u2014 HSTS not set.",
+    "risk_level": "LOW",
+    "summary": "4 issue(s) found on example.com (dns_record, owner: unknown). Highest severity: LOW \u2014 HSTS not set.",
     "key_findings": [
-      "[MEDIUM/HIGH conf] HSTS not set",
+      "[LOW/HIGH conf] HSTS not set",
       "[LOW/HIGH conf] Content-Security-Policy not set",
       "[LOW/HIGH conf] X-Content-Type-Options not set",
       "[LOW/HIGH conf] Clickjacking protection missing"

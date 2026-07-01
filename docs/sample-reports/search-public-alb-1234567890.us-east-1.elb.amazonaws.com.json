@@ -146,7 +146,7 @@
     {
       "check_id": "HDR-strict-transport-security",
       "title": "HSTS not set",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "description": "Without HSTS, clients can be downgraded to HTTP and are vulnerable to SSL-stripping man-in-the-middle attacks.",
       "evidence": "Response from search-public-alb-1234567890.us-east-1.elb.amazonaws.com",
       "remediation": "Add `Strict-Transport-Security: max-age=31536000; includeSubDomains`.",
@@ -200,7 +200,7 @@
     "key_findings": [
       "[HIGH/MEDIUM conf] Service served over plaintext HTTP only",
       "[HIGH/MEDIUM conf] Dangerous HTTP methods enabled: TRACE, DELETE, PUT",
-      "[MEDIUM/HIGH conf] HSTS not set",
+      "[LOW/HIGH conf] HSTS not set",
       "[LOW/HIGH conf] Content-Security-Policy not set",
       "[LOW/HIGH conf] X-Content-Type-Options not set",
       "[LOW/HIGH conf] Clickjacking protection missing",

@@ -24,9 +24,41 @@ from . import checks, discovery, notify, report
 from .models import Asset, AssetType
 from .enrichment import netguard
 from .orchestrator import InMemoryQueue, drain
+from .orchestrator.worker import write_report
 from .pipeline import review_asset
 
 _BUNDLED_EVENTS = Path(__file__).parent / "discovery" / "events"
+
+
+def _infer_asset_type(host: str, explicit: str) -> str:
+    """Guess asset type from hostname when the default dns_record was left in place."""
+    if explicit != AssetType.DNS_RECORD.value:
+        return explicit
+    h = host.lower()
+    if ".execute-api." in h:
+        return AssetType.API_GATEWAY.value
+    if ".lambda-url." in h or ".on.aws" in h and "lambda" in h:
+        return AssetType.LAMBDA_URL.value
+    if ".cloudfront.net" in h:
+        return AssetType.CLOUDFRONT.value
+    if ".elb.amazonaws.com" in h:
+        return AssetType.LOAD_BALANCER.value
+    if ".s3.amazonaws.com" in h or h.endswith(".s3.amazonaws.com"):
+        return AssetType.S3_BUCKET.value
+    return explicit
+
+
+def _print_slack_status(sent: int) -> None:
+    import os
+
+    if sent:
+        msg = f"✓ {sent} Slack alert(s) sent"
+    elif os.environ.get("SLACK_WEBHOOK_URL", "").strip():
+        msg = "(no Slack alerts — nothing met threshold/confidence gates)"
+    else:
+        msg = "(Slack disabled — set SLACK_WEBHOOK_URL in .env)"
+    print(msg)
+    print(msg, file=sys.stderr)
 
 
 def _print_report(rpt, as_json: bool) -> None:
@@ -36,21 +68,41 @@ def _print_report(rpt, as_json: bool) -> None:
         print(report.to_markdown(rpt))
 
 
+def _save_reports(reports: list, out_dir: Path) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for rpt in reports:
+        write_report(rpt, out_dir)
+    index = report.build_dashboard(out_dir)
+    print(f"Reports saved to {out_dir}/ · dashboard: {index}", file=sys.stderr)
+    return index
+
+
+def _clear_reports(out_dir: Path) -> None:
+    for pattern in ("*.json", "*.md", "index.html"):
+        for path in out_dir.glob(pattern):
+            path.unlink(missing_ok=True)
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     validated = netguard.validate_target(args.host)
     if not validated:
         print(f"Invalid or blocked scan target: {args.host!r}", file=sys.stderr)
         return 2
     asset = Asset(
-        asset_type=AssetType(args.type),
+        asset_type=AssetType(_infer_asset_type(validated, args.type)),
         target=validated,
         identifier=validated,
         source_event="manual-scan",
     )
     rpt = review_asset(asset, do_ports=not args.no_ports)
     _print_report(rpt, args.json)
-    if notify.maybe_notify(rpt):  # no-op unless SLACK_WEBHOOK_URL is set
-        print("(slack alert sent)", file=sys.stderr)
+    if not args.no_save:
+        out = Path(args.out)
+        if args.fresh:
+            out.mkdir(parents=True, exist_ok=True)
+            _clear_reports(out)
+        _save_reports([rpt], out)
+    _print_slack_status(notify.notify_report(rpt))
     return _exit_code(rpt, args.fail_on)
 
 
@@ -61,14 +113,18 @@ def cmd_discover(args: argparse.Namespace) -> int:
         print(f"No reviewable asset parsed from event {args.event}", file=sys.stderr)
         return 2
     worst = 0
+    saved: list = []
     for i, asset in enumerate(assets):
         if len(assets) > 1:
             print(f"\n===== asset {i + 1}/{len(assets)}: {asset.target} =====")
         rpt = review_asset(asset, do_ports=not args.no_ports)
         _print_report(rpt, args.json)
-        if notify.maybe_notify(rpt):  # no-op unless SLACK_WEBHOOK_URL is set
-            print("(slack alert sent)", file=sys.stderr)
+        if not args.no_save:
+            saved.append(rpt)
+        _print_slack_status(notify.notify_report(rpt))
         worst = max(worst, _exit_code(rpt, args.fail_on))
+    if saved:
+        _save_reports(saved, Path(args.out))
     return worst
 
 
@@ -150,8 +206,31 @@ def cmd_serve(args: argparse.Namespace) -> int:
     bind = args.bind
     if bind == "0.0.0.0":
         print("Warning: dashboard listening on all interfaces — findings are sensitive.", file=sys.stderr)
-    with socketserver.TCPServer((bind, args.port), handler) as httpd:
-        print(f"Serving findings at http://{bind}:{args.port}/  (Ctrl-C to stop)")
+
+    class _ReuseServer(socketserver.TCPServer):
+        allow_reuse_address = True
+
+    port = args.port
+    httpd = None
+    for attempt in range(10):
+        try:
+            httpd = _ReuseServer((bind, port), handler)
+            break
+        except OSError as exc:
+            if exc.errno != 48 or attempt == 9:
+                if exc.errno == 48:
+                    print(
+                        f"Ports {args.port}–{port} are in use. "
+                        f"Stop old servers or run: make serve PORT={port + 1}",
+                        file=sys.stderr,
+                    )
+                    return 1
+                raise
+            port += 1
+    if port != args.port:
+        print(f"Port {args.port} busy — using http://{bind}:{port}/ instead", file=sys.stderr)
+    with httpd:
+        print(f"Serving findings at http://{bind}:{port}/  (Ctrl-C to stop)")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
@@ -183,9 +262,17 @@ def cmd_notify_test(args: argparse.Namespace) -> int:
                        recommended_actions=["Enable S3 Block Public Access", "Rotate any leaked data/keys"],
                        owner_routing="Route to 'analytics-team'", model="notify-test")
     report = Report(asset=asset, enrichment=Enrichment(), findings=[finding], review=review)
-    ok = notify.post_to_slack(webhook, notify.build_payload(report))
-    print("✓ sample alert sent to Slack" if ok else "✗ Slack rejected the message (check the webhook URL)")
-    return 0 if ok else 1
+    new_ok = notify.post_to_slack(webhook, notify.build_new_asset_payload(report))
+    finding_ok = notify.post_to_slack(webhook, notify.build_payload(report))
+    if new_ok and finding_ok:
+        print("✓ new-asset and finding alerts sent to Slack")
+    elif new_ok:
+        print("✓ new-asset alert sent (finding alert failed — check webhook)")
+    elif finding_ok:
+        print("✓ finding alert sent (new-asset alert failed — check webhook)")
+    else:
+        print("✗ Slack rejected the messages (check the webhook URL)")
+    return 0 if (new_ok or finding_ok) else 1
 
 
 def cmd_info(_: argparse.Namespace) -> int:
@@ -213,6 +300,13 @@ def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="emit JSON instead of Markdown")
     common.add_argument("--no-ports", action="store_true", help="skip the port scan stage")
+    common.add_argument("--out", default="reports",
+                        help="write JSON/Markdown reports here and refresh index.html")
+    common.add_argument("--no-save", action="store_true",
+                        help="print results only; do not write reports or dashboard")
+    common.add_argument("--fresh", action="store_true",
+                        help="clear existing reports in --out before saving (POC/demo)")
+
     common.add_argument("--fail-on", choices=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
                         help="exit non-zero if max severity >= threshold (for CI gates)")
 
