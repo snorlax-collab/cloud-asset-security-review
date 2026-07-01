@@ -155,9 +155,9 @@ def _asset_row(r: dict[str, Any]) -> str:
 def _asset_table(subset: list[dict[str, Any]], cols_owner: bool = True) -> str:
     rows = "".join(_asset_row(r) for r in subset) or \
         '<tr><td colspan="5" class="empty">Nothing here yet.</td></tr>'
-    return ('<div class="panel" style="padding:4px 8px;"><table>'
+    return ('<div class="panel panel-table"><div class="table-wrap"><table>'
             '<thead><tr><th>Asset</th><th>Type</th><th>Owner</th><th>Findings</th><th>Risk</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table></div>')
+            f'<tbody>{rows}</tbody></table></div></div>')
 
 
 def _asset_detail(r: dict[str, Any], *, expand: bool = False) -> str:
@@ -172,8 +172,8 @@ def _asset_detail(r: dict[str, Any], *, expand: bool = False) -> str:
         f"<tr><td>{_chip(f.get('severity','INFO'), small=True)}</td>"
         f"<td class='muted'>{html.escape(str(f.get('confidence','HIGH')))}</td>"
         f"<td><code>{html.escape(f.get('check_id',''))}</code></td>"
-        f"<td>{html.escape(f.get('title',''))}</td>"
-        f"<td class='muted'>{html.escape((f.get('evidence','') or '')[:90])}</td></tr>"
+        f"<td class='t-wrap'>{html.escape(f.get('title',''))}</td>"
+        f"<td class='muted t-wrap t-evidence'>{html.escape(f.get('evidence','') or '')}</td></tr>"
         for f in findings
     ) or '<tr><td colspan="5" class="empty">No deterministic findings.</td></tr>'
 
@@ -183,15 +183,17 @@ def _asset_detail(r: dict[str, Any], *, expand: bool = False) -> str:
     meta_grid = _metadata_grid(a, enr)
 
     return f"""<details class="asset"{' open' if is_open else ''}>
-  <summary>{_chip(level)}<span class="t-name">{html.escape(a.get('target','?'))}</span>
-    <span class="muted" style="font-size:12px;">{html.escape(a.get('asset_type',''))} · {html.escape(a.get('owner','unknown') or 'unknown')}</span>
-    <span class="caret">▾</span></summary>
+  <summary>
+    <span class="sum-main">{_chip(level)}<span class="t-name">{html.escape(a.get('target','?'))}</span></span>
+    <span class="sum-meta muted">{html.escape(a.get('asset_type',''))} · {html.escape(a.get('owner','unknown') or 'unknown')}</span>
+    <span class="caret">▾</span>
+  </summary>
   <div class="d-body">
     <p class="d-summary">{html.escape(review.get('summary',''))}</p>
     {actions_block}
     <h4>Deterministic findings</h4>
-    <table><thead><tr><th>Sev</th><th>Conf</th><th>Check</th><th>Title</th><th>Evidence</th></tr></thead>
-    <tbody>{finding_rows}</tbody></table>
+    <div class="table-wrap"><table><thead><tr><th>Sev</th><th>Conf</th><th>Check</th><th>Title</th><th>Evidence</th></tr></thead>
+    <tbody>{finding_rows}</tbody></table></div>
     <h4>Collected metadata</h4>
     <div class="meta-grid">{meta_grid}</div>
   </div>
@@ -293,9 +295,9 @@ def _findings_section(reports: list[dict[str, Any]]) -> str:
     body = "".join(rows) or '<tr><td colspan="5" class="empty">No findings.</td></tr>'
     return ('<p class="blurb">Every deterministic finding across all assets, worst first. '
             'Alerts fire on severity AND confidence.</p>'
-            '<div class="panel" style="padding:4px 8px;"><table>'
+            '<div class="panel panel-table"><div class="table-wrap"><table>'
             '<thead><tr><th>Severity</th><th>Confidence</th><th>Asset</th><th>Check</th><th>Title</th></tr></thead>'
-            f'<tbody>{body}</tbody></table></div>')
+            f'<tbody>{body}</tbody></table></div></div>')
 
 
 def _discovery_section(reports: list[dict[str, Any]]) -> str:
@@ -374,9 +376,9 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
         </div>
       </div>
       <h3 style="margin-top:22px;">Most at-risk assets</h3>
-      <div class="panel" style="padding:4px 8px;"><table>
+      <div class="panel panel-table"><div class="table-wrap"><table>
         <thead><tr><th>Asset</th><th>Type</th><th>Owner</th><th>Findings</th><th>Risk</th></tr></thead>
-        <tbody>{top_rows}</tbody></table></div>"""
+        <tbody>{top_rows}</tbody></table></div></div>"""
 
     nav = "".join([
         _nav_item("overview", "overview", "Overview", None),
@@ -474,18 +476,21 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
   .nav-l {{ flex:1; }}
   .badge {{ background:#f1f5f9; color:#64748b; font-size:11px; font-weight:600; border-radius:999px; padding:1px 8px; }}
   .nav.active .badge {{ background:#dbe4ff; color:#4f46e5; }}
-  .main {{ flex:1; min-width:0; }}
+  .main {{ flex:1; min-width:0; width:100%; }}
   .topbar {{ background:#fff; border-bottom:1px solid #e6e8eb; padding:14px 28px;
              display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }}
   .tb-title {{ font-size:15px; font-weight:600; color:#0f172a; }}
   .tb-meta {{ font-size:12px; color:#94a3b8; margin-left:auto; }}
-  .content {{ padding: 22px 28px 48px; max-width: 1080px; }}
+  .content {{ padding:22px 32px 48px; width:100%; max-width:none; }}
   h2 {{ font-size:18px; font-weight:600; margin:0 0 16px; }}
   h3 {{ font-size:13px; font-weight:600; color:#334155; margin:0 0 10px; }}
-  .blurb {{ color:#64748b; font-size:13px; margin:0 0 16px; }}
-  .grid {{ display:grid; grid-template-columns: 1.7fr 1fr; gap:16px; }}
-  .two-col {{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }}
+  .blurb {{ color:#64748b; font-size:13px; margin:0 0 16px; max-width:960px; }}
+  .grid {{ display:grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap:16px; }}
+  .two-col {{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:16px; }}
   .panel {{ background:#fff; border:1px solid #e6e8eb; border-radius:14px; padding:18px; }}
+  .panel-table {{ padding:8px 12px; }}
+  .table-wrap {{ overflow-x:auto; width:100%; -webkit-overflow-scrolling:touch; }}
+  .table-wrap table {{ min-width:640px; }}
   .score {{ text-align:center; padding:2px 0 12px; }}
   .score .n {{ font-size:42px; font-weight:700; letter-spacing:-1px; color:#4f46e5; }}
   .score .l {{ font-size:10px; letter-spacing:.6px; color:#94a3b8; text-transform:uppercase; }}
@@ -499,34 +504,45 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
   .leg {{ display:flex; align-items:center; gap:8px; font-size:12.5px; }}
   .leg .dot {{ width:9px; height:9px; border-radius:50%; }}
   .leg-l {{ color:#475569; }} .leg-n {{ margin-left:auto; font-weight:600; }}
-  table {{ width:100%; border-collapse:collapse; font-size:12.5px; }}
+  table {{ width:100%; border-collapse:collapse; font-size:12.5px; table-layout:auto; }}
   th {{ text-align:left; color:#94a3b8; font-weight:600; font-size:10.5px; text-transform:uppercase;
-        letter-spacing:.4px; padding:8px 10px; border-bottom:1px solid #eef0f2; }}
-  td {{ padding:9px 10px; border-bottom:1px solid #f2f4f6; }}
+        letter-spacing:.4px; padding:8px 12px; border-bottom:1px solid #eef0f2; white-space:nowrap; }}
+  td {{ padding:9px 12px; border-bottom:1px solid #f2f4f6; vertical-align:top; }}
   tr:last-child td {{ border-bottom:none; }}
-  .t-name {{ font-weight:600; }} .muted {{ color:#94a3b8; }}
+  .t-name {{ font-weight:600; word-break:break-word; overflow-wrap:anywhere; max-width:420px; }}
+  .t-wrap {{ word-break:break-word; overflow-wrap:anywhere; }}
+  .t-evidence {{ min-width:180px; max-width:360px; }}
+  .muted {{ color:#94a3b8; }}
   .chip {{ font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; }}
   .chip-sm {{ font-size:10px; padding:2px 7px; }}
   .grade {{ font-weight:700; font-size:12px; padding:2px 8px; border-radius:7px; }}
   .num-pill {{ background:#f1f5f9; border-radius:7px; padding:2px 9px; font-weight:600; font-size:11px; }}
   details.asset {{ background:#fff; border:1px solid #e6e8eb; border-radius:12px; margin-bottom:12px; overflow:hidden; }}
-  details.asset > summary {{ cursor:pointer; padding:14px 18px; display:flex; align-items:center; gap:12px; list-style:none; }}
+  details.asset > summary {{ cursor:pointer; padding:14px 18px; display:grid;
+          grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"title caret" "meta caret";
+          align-items:center; gap:4px 12px; list-style:none; }}
   details.asset > summary::-webkit-details-marker {{ display:none; }}
-  .caret {{ color:#cbd5e1; margin-left:auto; }}
+  .sum-main {{ grid-area:title; display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; }}
+  .sum-meta {{ grid-area:meta; font-size:12px; }}
+  .caret {{ grid-area:caret; color:#cbd5e1; align-self:center; }}
   .d-body {{ padding:4px 18px 18px; border-top:1px solid #f2f4f6; }}
   .d-body h4 {{ font-size:10.5px; text-transform:uppercase; color:#94a3b8; letter-spacing:.4px; margin:16px 0 6px; }}
-  .d-summary {{ color:#334155; font-size:13px; margin:12px 0; }}
-  .meta-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:10px; margin-top:6px; }}
-  .meta-card {{ background:#fafbfc; border:1px solid #eef0f2; border-radius:10px; padding:11px 13px; }}
+  .d-summary {{ color:#334155; font-size:13px; margin:12px 0; line-height:1.5; }}
+  .meta-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap:12px; margin-top:6px; }}
+  .meta-card {{ background:#fafbfc; border:1px solid #eef0f2; border-radius:10px; padding:12px 14px; min-width:0; }}
   .meta-h {{ font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:#94a3b8; font-weight:600; margin-bottom:7px; }}
-  .kv {{ display:flex; gap:10px; font-size:12px; padding:2px 0; }}
-  .kv .k {{ color:#94a3b8; min-width:100px; flex-shrink:0; }}
-  .kv .v {{ color:#334155; word-break:break-word; }}
-  .actions {{ margin:0; padding-left:18px; }} .actions li {{ font-size:13px; margin:3px 0; }}
-  code {{ background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:12px; }}
+  .kv {{ display:grid; grid-template-columns:minmax(88px, 120px) minmax(0, 1fr); gap:4px 12px; font-size:12px; padding:3px 0; align-items:start; }}
+  .kv .k {{ color:#94a3b8; }}
+  .kv .v {{ color:#334155; overflow-wrap:anywhere; word-break:break-word; }}
+  .actions {{ margin:0; padding-left:18px; }} .actions li {{ font-size:13px; margin:3px 0; line-height:1.45; }}
+  code {{ background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:12px; word-break:break-all; }}
   .empty {{ color:#94a3b8; text-align:center; padding:16px; }}
   .sr-only {{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }}
   @media (max-width: 900px) {{ .side {{ display:none; }} .grid, .two-col {{ grid-template-columns:1fr; }} }}
+  @media (min-width: 1400px) {{
+    .content {{ padding-left:40px; padding-right:40px; }}
+    .meta-grid {{ grid-template-columns:repeat(3, minmax(0, 1fr)); }}
+  }}
   {pdf_css}
 </style></head>
 <body{body_class}>
