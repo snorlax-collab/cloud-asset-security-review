@@ -81,8 +81,13 @@ Claude Opus 4.8 receives only the deterministic findings + enrichment facts and 
 ### 6. Report (`report/`)
 JSON for machines (routing, dashboards, S3) and a dashboard-style [sample PDF](sample-report.pdf) for humans.
 
-### 7. Orchestration & ephemeral execution (`orchestrator/`, `infra/`)
-Step Functions (or EventBridge Pipes) launch **one ephemeral, isolated execution per asset** and route results by severity. The same queue-based-worker model is **runnable locally** against LocalStack via [`../docker-compose.yml`](../docker-compose.yml) (`make stack`): discovery → real SQS → a pool of ephemeral workers → dashboard. See [DESIGN.md](DESIGN.md) for the isolation/cleanup/cost rationale and the scaling model, and [THREAT_MODEL.md](THREAT_MODEL.md) for the scanner-as-attack-surface analysis.
+### 7. Orchestration & production deploy (`infra/terraform/`, `orchestrator/`)
+
+**Production (shipped):** [`../infra/terraform/`](../infra/terraform/) deploys CloudTrail → EventBridge → Discovery Lambda → SQS → **ECS Fargate workers** → S3 + Slack. Workers run in a dedicated subnet with NACL egress filtering, hardened container definition, and a least-privilege task role. See [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md) and [THREAT_MODEL.md](THREAT_MODEL.md).
+
+**Local demo:** [`../docker-compose.yml`](../docker-compose.yml) (`make stack`) runs discovery → LocalStack SQS → worker pool → dashboard — code-level guards only, no network isolation.
+
+**Reference stubs:** Step Functions ([`../infra/step-functions.asl.json`](../infra/step-functions.asl.json)), per-asset K8s Jobs ([`../infra/k8s-scan-job.yaml`](../infra/k8s-scan-job.yaml)) — illustrate alternate ephemeral-execution models; not wired to `make deploy-apply`.
 
 ## Data contract
 Everything flows through the JSON-serialisable dataclasses in `models.py` (`Asset → Enrichment → [Finding] → LlmReview → Report`), so each stage evolves independently and an `Asset` can ride the queue between processes.

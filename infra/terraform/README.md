@@ -12,7 +12,7 @@ Deploys continuous monitoring: **CloudTrail → EventBridge → Discovery Lambda
 | Docker | Build/push the scanner image to ECR |
 | CloudTrail | Management events enabled on the account (multi-region trail recommended) |
 | IAM | Permissions to create Lambda, ECS, SQS, S3, EventBridge, Secrets Manager, ECR |
-| Default VPC | Fargate workers use the account default VPC with public IP for internet egress |
+| Default VPC | Dedicated scanner subnet (default: last `/24` of VPC CIDR) with NACL egress filter; override via `scanner_subnet_cidr` if overlapping |
 | Anthropic API key | Stored in Secrets Manager; enables real Claude review in workers |
 | Slack webhook (recommended) | Stored in Secrets Manager; real-time alerts on new assets and findings |
 
@@ -75,8 +75,9 @@ make deploy-apply AWS_REGION=ap-south-1         # ECS workers
 | EventBridge rule (tier-1) | Matches create/expose events from `infra/eventbridge-rules.json` |
 | `asset-review-reports-*` S3 | JSON/Markdown reports + `reports/index.html` dashboard |
 | `asset-review-dashboard-sync` Lambda | Rebuilds dashboard every 5 minutes from S3 |
-| ECS Fargate service | Always-on workers (`worker --drain-empty=0`) |
-| Secrets Manager | `ANTHROPIC_API_KEY`, `SLACK_WEBHOOK_URL` |
+| Scanner subnet + NACL | Denies RFC1918 and `169.254.0.0/16` egress; no inbound to tasks |
+| ECS Fargate service | Always-on workers in a dedicated subnet with NACL egress filter + hardened container |
+| Secrets Manager | Holds `ANTHROPIC_API_KEY` and `SLACK_WEBHOOK_URL` (populated via `make set-scanner-secret`) |
 | ECR repository | Scanner container image |
 
 ## Verify it works

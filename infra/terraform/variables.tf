@@ -38,6 +38,12 @@ variable "dashboard_sync_rate" {
   default     = "rate(5 minutes)"
 }
 
+variable "scanner_subnet_cidr" {
+  description = "Dedicated subnet CIDR for scanner tasks (must not overlap existing subnets). Defaults to last /24 of the VPC CIDR."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

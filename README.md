@@ -25,7 +25,7 @@ Short version — full rationale in [docs/DESIGN.md](docs/DESIGN.md):
 - **SQS decouples discovery from scanning** — scales horizontally; scans may run twice
 - **Small built-in rule set** — clear and auditable, not a full nuclei/ZAP replacement
 - **False-positive guards** — content checks + confidence scores before alerting
-- **Isolated workers + private S3 reports** — safe scanning; no public dashboard URL by default
+- **Isolated workers + private S3 reports** — dedicated subnet, NACL egress filter, hardened Fargate task; see [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 
 **Not built yet:** tier-2 correlation, finding dedup/lifecycle, multi-account S3 API checks.
 

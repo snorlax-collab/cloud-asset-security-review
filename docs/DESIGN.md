@@ -18,7 +18,7 @@ Engineering ships internet-facing assets faster than security can inventory them
 
 **Separate detection from assessment.** Discovery normalises an asset and enqueues it. Scanning runs asynchronously behind SQS so bursts (Monday deploys, batch Route53 changes) do not stall the control plane or starve each other.
 
-**Assume the target is hostile.** Workers probe attacker-influenced endpoints. Execution is isolated, egress-only, and least-privilege. The scanner itself is treated as part of the attack surface — see [THREAT_MODEL.md](THREAT_MODEL.md).
+**Assume the target is hostile.** Workers probe attacker-influenced endpoints. On the shipped ECS path: dedicated subnet, NACL egress denies, no inbound SG rules, hardened Fargate task, least-privilege IAM. See [THREAT_MODEL.md](THREAT_MODEL.md).
 
 ---
 
@@ -57,16 +57,20 @@ Checks are scoped by asset type. Running HTTP method/header rules against S3 pro
 CloudTrail → EventBridge → Discovery Lambda → SQS → ECS workers → S3 + Slack
 ```
 
-Workers run continuously in Fargate, pull from SQS, write reports to a private S3 bucket, and post to Slack. A scheduled Lambda rebuilds the HTML dashboard from S3 objects.
+Workers run continuously in Fargate on a **dedicated subnet** in the default VPC (public IP for internet probes; not an app-tier subnet). Defense-in-depth for SSRF/pivot:
 
-**Operational choices**
+| Layer | ECS deploy |
+|---|---|
+| Code | `netguard.py` blocks private/link-local targets and redirect chains |
+| Network | NACL denies RFC1918 + `169.254.0.0/16` egress; security group has no ingress |
+| Identity | Task role: SQS consume + S3 `reports/*` write only |
+| Runtime | Non-root, read-only rootfs, capabilities dropped, `/tmp` scratch only |
 
-- Reports land in an encrypted, non-public bucket. There is no internet-facing dashboard URL by default — findings are sensitive.
-- S3 lifecycle expires objects under `reports/` after 90 days unless overridden.
-- API keys and Slack webhooks are stored in Secrets Manager and loaded outside Terraform so secrets do not appear in state files.
-- Dashboard sync re-reads all report JSON on each run. Acceptable at low volume; will need incremental sync or longer intervals as report count grows.
+API keys and Slack webhooks go to Secrets Manager via `make set-scanner-secret` (not Terraform state). Dashboard sync Lambda rebuilds `index.html` every 5 minutes.
 
-Local validation: `make stack` (LocalStack path) and `make test`.
+Local validation: `make stack` (LocalStack — code guards only) and `make test`.
+
+**Also:** encrypted private S3 bucket, 90-day report lifecycle, no public dashboard URL.
 
 ---
 

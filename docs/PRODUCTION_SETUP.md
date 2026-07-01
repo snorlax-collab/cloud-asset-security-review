@@ -200,6 +200,16 @@ make deploy-apply AWS_REGION=$AWS_REGION AWS_PROFILE=$AWS_PROFILE
 
 This creates the ECS Fargate cluster and starts **2 always-on worker tasks** that poll SQS continuously.
 
+Workers land in a **dedicated subnet** (default: last `/24` of the VPC CIDR) with:
+
+- **NACL egress denies** for RFC1918 and `169.254.0.0/16` (covers EC2 IMDS and ECS task metadata)
+- **No security-group ingress** (tasks are not reachable from outside)
+- **Hardened task definition** — non-root, read-only root filesystem, all capabilities dropped, writable `/tmp` only
+
+If the default subnet CIDR overlaps an existing subnet, set `scanner_subnet_cidr` in `terraform.tfvars` to an unused block.
+
+See [THREAT_MODEL.md](THREAT_MODEL.md) for the full isolation model.
+
 ---
 
 ## Step 7 — Verify it works

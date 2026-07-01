@@ -2,20 +2,16 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
 resource "aws_security_group" "worker" {
   name        = "${local.name}-worker"
-  description = "Scanner workers: egress-only"
+  description = "Scanner workers: no ingress; egress to internet only (RFC1918/IMDS denied at NACL)"
   vpc_id      = data.aws_vpc.default.id
   tags        = local.tags
 
+  # No ingress rules — tasks are not reachable from outside.
+
   egress {
+    description = "Internet egress for scan probes and AWS/Slack/Anthropic APIs"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -49,11 +45,28 @@ resource "aws_ecs_task_definition" "worker" {
   task_role_arn            = aws_iam_role.ecs_task.arn
   tags                     = local.tags
 
+  volume {
+    name = "tmp"
+  }
+
   container_definitions = jsonencode([{
     name      = "worker"
     image     = var.scanner_image
     essential = true
+    user      = "65534"
     command   = ["worker", "--queue-url", aws_sqs_queue.asset_scan.url, "--out", "/tmp/reports", "--drain-empty", "0"]
+    readonlyRootFilesystem = true
+    linuxParameters = {
+      capabilities = {
+        drop = ["ALL"]
+      }
+      initProcessEnabled = true
+    }
+    mountPoints = [{
+      sourceVolume  = "tmp"
+      containerPath = "/tmp"
+      readOnly      = false
+    }]
     environment = [
       { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       { name = "REPORTS_S3_BUCKET", value = aws_s3_bucket.reports.id },
@@ -85,7 +98,7 @@ resource "aws_ecs_service" "worker" {
   tags            = local.tags
 
   network_configuration {
-    subnets          = data.aws_subnets.default.ids
+    subnets          = [aws_subnet.scanner.id]
     security_groups  = [aws_security_group.worker.id]
     assign_public_ip = true
   }
