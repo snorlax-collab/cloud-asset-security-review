@@ -48,7 +48,7 @@ def process_once(queue: Queue, *, on_report: Callable[[Report], None]) -> Option
     log.info("scanning %s (%s)", asset.target, asset.asset_type.value)
     rpt = review_asset(asset)
     on_report(rpt)
-    notify.maybe_notify(rpt)  # severity-gated Slack alert (no-op unless configured)
+    notify.notify_report(rpt)  # new-asset + severity-gated Slack alerts (no-op unless configured)
     if hasattr(queue, "ack"):
         queue.ack(asset)  # type: ignore[attr-defined]
     return rpt

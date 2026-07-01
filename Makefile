@@ -6,6 +6,21 @@ VENV := .venv
 BIN := $(VENV)/bin
 HOST ?= example.com
 PORT ?= 8000
+TYPE ?= dns_record
+
+# Infer AWS asset type from common hostname patterns for POC scans.
+ifeq ($(findstring execute-api,$(HOST)),execute-api)
+  TYPE := api_gateway
+endif
+ifeq ($(findstring lambda-url,$(HOST)),lambda-url)
+  TYPE := lambda_url
+endif
+ifeq ($(findstring .elb.amazonaws.com,$(HOST)),.elb.amazonaws.com)
+  TYPE := load_balancer
+endif
+ifeq ($(findstring .s3.amazonaws.com,$(HOST)),.s3.amazonaws.com)
+  TYPE := s3_bucket
+endif
 
 .DEFAULT_GOAL := help
 
@@ -28,9 +43,17 @@ setup: $(BIN)/python ## Create venv + install the package (and dev/llm extras)
 demo: setup ## Replay bundled discovery events through the full pipeline
 	$(BIN)/asset-review demo --out reports
 
+.PHONY: poc-scan
+poc-scan: setup ## POC: wipe demo reports, scan HOST (+ Slack), rebuild dashboard
+	$(BIN)/asset-review scan --host $(HOST) --type $(TYPE) --fresh
+
+.PHONY: poc
+poc: poc-scan ## POC: clean scan then serve dashboard at :$(PORT)
+	$(BIN)/asset-review serve --out reports --port $(PORT)
+
 .PHONY: scan
-scan: setup ## Scan a live host:  make scan HOST=example.com
-	$(BIN)/asset-review scan --host $(HOST)
+scan: setup ## Scan a live host (+ Slack alerts if SLACK_WEBHOOK_URL is in .env)
+	$(BIN)/asset-review scan --host $(HOST) --type $(TYPE)
 
 .PHONY: dashboard
 dashboard: demo ## Build reports + open the browsable findings dashboard

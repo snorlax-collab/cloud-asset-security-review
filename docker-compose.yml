@@ -57,7 +57,7 @@ services:
       <<: *aws-env
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
-      SLACK_ALERT_THRESHOLD: ${SLACK_ALERT_THRESHOLD:-HIGH}
+      SLACK_ALERT_THRESHOLD: ${SLACK_ALERT_THRESHOLD:-LOW}
     volumes:
       - reports:/reports
     deploy:

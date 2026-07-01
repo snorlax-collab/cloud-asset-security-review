@@ -11,7 +11,7 @@ from asset_review.report.dashboard import build_dashboard, load_reports, render_
 from asset_review.report.pdf_export import _find_chrome, build_pdf_from_dir
 
 
-def test_dashboard_has_no_devrev_branding(tmp_path: Path) -> None:
+def test_dashboard_has_devrev_branding(tmp_path: Path) -> None:
     report = {
         "asset": {"target": "test.example.com", "asset_type": "dns_record", "owner": "team-a"},
         "review": {"risk_level": "LOW", "summary": "ok"},
@@ -20,10 +20,11 @@ def test_dashboard_has_no_devrev_branding(tmp_path: Path) -> None:
     }
     (tmp_path / "test.example.com.json").write_text(json.dumps(report))
     html = render_dashboard([report])
-    assert "DevRev" not in html
-    assert "Asset Review" in html
+    assert "DevRev" in html
+    assert "dr-mark" in html
+    assert "Cloud security dashboard" in html
     build_dashboard(tmp_path)
-    assert "DevRev" not in (tmp_path / "index.html").read_text()
+    assert "DevRev" in (tmp_path / "index.html").read_text()
 
 
 def test_pdf_render_includes_all_sections() -> None:
@@ -51,6 +52,23 @@ def test_build_pdf_from_sample_reports(tmp_path: Path) -> None:
     except RuntimeError:
         pytest.skip("Chrome headless unavailable in this environment")
     assert pdf.stat().st_size > 5000
+
+
+def test_new_assets_section_includes_live_scans() -> None:
+    demo = {
+        "asset": {"target": "acme-labs.com", "asset_type": "hosted_zone",
+                  "account_id": "111122223333", "source_event": "CreateHostedZone"},
+        "findings": [], "review": {"risk_level": "MEDIUM"}, "enrichment": {},
+    }
+    live = {
+        "asset": {"target": "0asvcrjno4.execute-api.ap-south-1.amazonaws.com",
+                  "asset_type": "api_gateway", "source_event": "manual-scan"},
+        "findings": [{"severity": "HIGH"}], "review": {"risk_level": "HIGH"}, "enrichment": {},
+    }
+    html = render_dashboard([demo, live])
+    assert "New assets" in html
+    assert "0asvcrjno4.execute-api.ap-south-1.amazonaws.com" in html
+    assert html.count("acme-labs.com") >= 1  # still elsewhere in dashboard views
 
 
 def test_load_reports_sorts_by_risk(tmp_path: Path) -> None:

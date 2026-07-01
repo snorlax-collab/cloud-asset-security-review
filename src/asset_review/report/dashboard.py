@@ -29,6 +29,24 @@ _GRADE = {"CRITICAL": ("D", "#dc2626"), "HIGH": ("C", "#ea580c"),
 # Which asset types belong in each sidebar section.
 _NEW_DOMAIN_TYPES = {"hosted_zone"}
 _EXISTING_DOMAIN_TYPES = {"dns_record"}
+_DEMO_ACCOUNT = "111122223333"
+_USER_SOURCE_EVENTS = frozenset({"manual-scan", "manual"})
+
+
+def _is_new_asset(report: dict[str, Any]) -> bool:
+    """Assets from a live scan/discovery — not bundled demo samples."""
+    asset = report.get("asset", {})
+    event = (asset.get("source_event") or "").strip()
+    acct = (asset.get("account_id") or "").strip()
+    if event in _USER_SOURCE_EVENTS:
+        return True
+    if acct and acct != _DEMO_ACCOUNT and (
+        event.startswith("Create")
+        or event.startswith("Register")
+        or event.startswith("PutBucket")
+    ):
+        return True
+    return False
 
 # Minimal inline stroke icons (inherit color/size from parent).
 _ICONS = {
@@ -344,10 +362,11 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
     clean = sum(1 for r in reports if not r.get("findings"))
     generated = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    new_domains = [r for r in reports if r.get("asset", {}).get("asset_type") in _NEW_DOMAIN_TYPES]
+    new_assets = [r for r in reports if _is_new_asset(r)]
     existing_domains = [r for r in reports if r.get("asset", {}).get("asset_type") in _EXISTING_DOMAIN_TYPES]
     endpoints = [r for r in reports if r.get("asset", {}).get("asset_type")
-                 not in (_NEW_DOMAIN_TYPES | _EXISTING_DOMAIN_TYPES)]
+                 not in (_NEW_DOMAIN_TYPES | _EXISTING_DOMAIN_TYPES)
+                 and not _is_new_asset(r)]
 
     metrics = "".join([
         _metric("Critical", str(counts["CRITICAL"]), _SEV_COLOR["CRITICAL"]),
@@ -382,7 +401,7 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
 
     nav = "".join([
         _nav_item("overview", "overview", "Overview", None),
-        _nav_item("new-domains", "new", "New domains", len(new_domains)),
+        _nav_item("new-assets", "new", "New assets", len(new_assets)),
         _nav_item("existing-domains", "existing", "Existing domains", len(existing_domains)),
         _nav_item("endpoints", "endpoints", "Endpoints & services", len(endpoints)),
         _nav_item("findings", "findings", "Findings", total_findings),
@@ -399,9 +418,10 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
     section_kw = {"expand_details": for_pdf}
     views = "".join([
         _view("overview", "Security overview", overview, show=not for_pdf),
-        _view("new-domains", "New domains",
-              _asset_section(new_domains, "Newly created hosted zones / registered domains "
-                             "(Route53 CreateHostedZone, RegisterDomain).", **section_kw)),
+        _view("new-assets", "New assets",
+              _asset_section(new_assets, "Endpoints and domains you just scanned or discovered "
+                             "(CloudTrail Create* events and live scans — demo samples excluded).",
+                             **section_kw)),
         _view("existing-domains", "Existing domains",
               _asset_section(existing_domains, "Records added to existing zones "
                              "(Route53 ChangeResourceRecordSets) — subdomains on domains you already own.",
@@ -416,11 +436,11 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
     body_class = ' class="pdf-export"' if for_pdf else ""
     nav_block = "" if for_pdf else f"""<nav class="side">
   <div class="brand">
-    <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-      <path d="M12 2 20 6v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V6z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-      <path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <svg class="dr-mark" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
+      <path d="M16 3 L27 9.5 L16 16 Z"/><path d="M29 16 L22.5 27 L16 16.5 Z"/>
+      <path d="M16 29 L5 22.5 L16 16 Z"/><path d="M3 16 L9.5 5 L16 15.5 Z"/>
     </svg>
-    <span class="brand-title">Asset Review</span>
+    <span class="dr-word">DevRev<sup>®</sup></span>
   </div>
   <div class="brand-sub">Cloud security dashboard</div>
   {nav}
@@ -464,8 +484,9 @@ def _render(reports: list[dict[str, Any]], *, for_pdf: bool = False) -> str:
   .side {{ width: 230px; flex-shrink: 0; background: #fff; border-right: 1px solid #e6e8eb;
            padding: 18px 12px; position: sticky; top: 0; align-self: flex-start; height: 100vh; }}
   .brand {{ display:flex; align-items:center; gap:8px; padding: 8px 10px 2px; }}
-  .brand-mark {{ color:#4f46e5; flex-shrink:0; }}
-  .brand-title {{ font-size:16px; font-weight:700; letter-spacing:-.3px; color:#0f172a; }}
+  .dr-mark path {{ fill:#111; }}
+  .dr-word {{ font-size:19px; font-weight:700; letter-spacing:-.5px; color:#111; }}
+  .dr-word sup {{ font-size:9px; font-weight:400; vertical-align:super; }}
   .brand-sub {{ font-size:11px; color:#94a3b8; padding: 0 12px 16px; letter-spacing:.3px; }}
   .nav {{ display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:9px;
           color:#475569; font-size:13.5px; font-weight:500; cursor:pointer; margin-bottom:2px; }}

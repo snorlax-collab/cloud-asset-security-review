@@ -26,7 +26,7 @@ _WEB_TYPES = {AssetType.DNS_RECORD, AssetType.HOSTED_ZONE, AssetType.LOAD_BALANC
 
 _REQUIRED_HEADERS = {
     "strict-transport-security": (
-        Severity.MEDIUM,
+        Severity.LOW,
         "HSTS not set",
         "Without HSTS, clients can be downgraded to HTTP and are vulnerable to "
         "SSL-stripping man-in-the-middle attacks.",
